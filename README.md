@@ -118,6 +118,26 @@ npm run build    # tsc -> lib/
 npm test         # 全部单元测试（无 LLM、无网络）
 ```
 
+### `@deepseek-ai/*` 依赖契约（为什么是 optional peer）
+
+本仓对 `@deepseek-ai/*`（`cordis`、`dsh-subagent`、`dsh-llm`、`schemastery` 等）
+只声明 **optional peerDependencies**（`>=0.2.0-rc.2`）。这是有意的两层分工：
+
+- **发布语义（给消费者）**：声明表达「使用宿主自带的同名包、版本下限
+  `>=0.2.0-rc.2`」。optional peer 不会被 pnpm / npm 自动安装，因此不会在
+  profile 的 `node_modules` 里生成第二份拷贝去遮蔽（shadow）宿主 bundled 的
+  闭包。会出事的是硬 dependency 精确钉旧 rc 版——那会把宿主 0.2.x 弄到无法
+  boot（已知社区事故模式）。
+- **开发 typecheck（给本仓）**：peer 不被安装，`scripts/link-dsh-closure.mjs`
+  （postinstall）把 `node_modules/@deepseek-ai/*` 软链到全局 dsh 安装的闭包，
+  保证类型图里只有一份 `@deepseek-ai/cordis`——出现第二份会打断 cordis 的
+  `declare module` 类型增强（`Property 'settings' does not exist on type
+  'Context'`）。
+
+维护守则：这些包永远保持 optional peer 形态——不要移回 dependencies /
+devDependencies，也不要去掉 `optional: true`（非 optional peer 在
+`auto-install-peers` 开启的 pnpm 下会被自动安装，第二副本问题即复发）。
+
 ## License
 
 MIT

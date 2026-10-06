@@ -139,6 +139,30 @@ npm run build    # tsc -> lib/
 npm test         # all unit tests (no LLM, no network)
 ```
 
+### The `@deepseek-ai/*` dependency contract (why optional peers)
+
+This repo declares the `@deepseek-ai/*` packages (`cordis`, `dsh-subagent`,
+`dsh-llm`, `schemastery`, …) as **optional peerDependencies** only
+(`>=0.2.0-rc.2`). That is a deliberate two-layer split:
+
+- **Release semantics (for consumers)**: the declaration says "use the host's
+  own copies, floor `>=0.2.0-rc.2`". Optional peers are never auto-installed
+  by pnpm or npm, so they cannot materialize a second copy in the profile's
+  `node_modules` that shadows the host's bundled closure. What does break
+  hosts is a hard dependency pinned to an old rc — that can render a 0.2.x
+  host unbootable (a known community failure mode).
+- **Dev typecheck (for this repo)**: since peers are not installed,
+  `scripts/link-dsh-closure.mjs` (postinstall) symlinks
+  `node_modules/@deepseek-ai/*` to the global dsh install's closure, keeping
+  exactly one `@deepseek-ai/cordis` in the type graph — a second copy breaks
+  the cordis `declare module` augmentation (`Property 'settings' does not
+  exist on type 'Context'`).
+
+Maintenance rule: keep these entries as optional peers — never move them back
+to dependencies/devDependencies, and never drop `optional: true` (a
+non-optional peer is auto-installed under pnpm's `auto-install-peers` and the
+second-copy breakage returns).
+
 ## License
 
 MIT

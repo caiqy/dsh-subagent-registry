@@ -2,22 +2,32 @@
  * Postinstall linker: point every `node_modules/@deepseek-ai/*` entry at the
  * global dsh closure.
  *
- * Why this exists: dsh-tui-pi is a plugin that runs *inside* the installed
- * dsh CLI, and its source imports the `@deepseek-ai/*` packages (cordis,
- * dsh-session, dsh-settings, schemastery, …). Those packages are **not**
- * resolvable from the public npm registry in a usable way (their rc.6
- * versions live only in the dsh install's own node_modules), so the repo
- * resolves them from the *global dsh closure* —
+ * Why this exists: dsh-subagent-registry is a plugin that runs *inside* the
+ * installed dsh CLI, and its source imports the `@deepseek-ai/*` packages
+ * (cordis, dsh-subagent, dsh-llm, schemastery, …). Typechecking must line up
+ * with the exact copies the host bundles — not whatever a fresh npm install
+ * would pull today — so the repo resolves them from the *global dsh closure* —
  * `$(realpath $(which dsh))/node_modules/@deepseek-ai` — via plain symlinks.
  *
  * The contract: ALL `@deepseek-ai/*` resolve to that single closure instance,
- * so there is exactly one `@deepseek-ai/cordis` in the type graph. Declaring
- * any of them in package.json made `pnpm install` create a second local copy
- * in `.pnpm`, which broke the cordis `declare module` augmentation
- * (`Property 'settings' does not exist on type 'Context'`), so they must stay
- * *undeclared*. pnpm then treats the closure links as extraneous — and, as
- * it prunes entries it once managed, the links can still disappear after an
- * install. This script re-creates them on every `pnpm install` (postinstall).
+ * so there is exactly one `@deepseek-ai/cordis` in the type graph.
+ *
+ * Relationship to package.json: the `@deepseek-ai/*` entries there are
+ * OPTIONAL peerDependencies — release semantics for consumers ("expect the
+ * host's copies, floor >=0.2.0-rc.2"), not install specs. Optional peers are
+ * never auto-installed (pnpm's auto-install-peers and npm's peer auto-install
+ * both skip them), so they cannot materialize a second local copy in `.pnpm`.
+ * That second copy is exactly what a hard dependency used to create, breaking
+ * the cordis `declare module` augmentation (`Property 'settings' does not
+ * exist on type 'Context'`) — which is why these packages moved to optional
+ * peers (3a7c245, then 085ca03 marked them optional). Keep them optional
+ * peers: never move them back to dependencies/devDependencies, and never drop
+ * the `optional: true` — a non-optional peer gets auto-installed under
+ * pnpm's auto-install-peers and the second-copy breakage returns.
+ *
+ * pnpm still treats the closure links as extraneous — and, as it prunes
+ * entries it once managed, the links can disappear after an install. This
+ * script re-creates them on every `pnpm install` (postinstall).
  *
  * It is a no-op (exit 0) when no global dsh install is found — a dev machine
  * without dsh simply cannot typecheck against dsh types.
