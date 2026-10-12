@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-10-12
+
+### Fixed
+- **The published tarball is npm-installable again** — `postinstall` runs `node scripts/link-dsh-closure.mjs`, but the `files` allow-list never shipped `scripts/`, so every non-link install of 0.12.0+ (plugin manager, plain `npm install`) died in the lifecycle step with `MODULE_NOT_FOUND` (fan56/dsh-subagent-registry#2). `scripts/` now ships. The linker's stand-down guard was also swapped from "no `src/`" — a marker the tarball actually *does* ship, so the old check would have let the linker run in a consumer tree — to two markers the `files` list never carries (`tsconfig.json`, `.git`). New `test/packaged-install.test.mjs` runs the reported failing step end-to-end: pack, inspect the tarball, `npm install` the tarball with lifecycle scripts on, and assert the linker stood down in the consumer tree. The boot smoke's scratch-profile install also moved from pnpm to npm — pnpm ≥10's default dependency-lifecycle block is exactly how this breakage stayed invisible to the previous gate, so the real-host gate now exercises the same consumer path (with a new assertion that the linker stood down there too).
+
 ## [Unreleased]
 
 ### Docs
