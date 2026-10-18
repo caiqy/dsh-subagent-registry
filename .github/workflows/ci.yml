@@ -1,10 +1,11 @@
 # CI: build, typecheck, unit suite on Node 22/24, plus a real-host boot smoke
 # — on every push to main, every pull request, and a daily schedule.
 #
-# The @deepseek-ai/* devDeps are pinned exactly to 0.1.7-rc.1 so installs
-# resolve a real published surface, but typecheck/tests run against the GLOBAL
-# dsh CLI's own closure (scripts/link-dsh-closure.mjs re-points every
-# @deepseek-ai/* at it) — one cordis in the type graph, and the gate tracks
+# The @deepseek-ai/* devDeps are pinned to the current wave line (0.2.1-rc.2)
+# so installs resolve a real published surface, but typecheck/tests run against
+# the DSH_CLOSURE_DIR override or the GLOBAL dsh CLI's own closure
+# (scripts/link-dsh-closure.mjs re-points every @deepseek-ai/* at it) — one
+# cordis in the type graph, and the gate tracks
 # the rolling rc/stable line the same way the running host does. The smoke job
 # boots a scratch profile with the plugin mounted via the real dsh CLI
 # (scripts/smoke-boot.mjs) so "loads under real cordis" is a gate, not a hope.
@@ -67,12 +68,22 @@ jobs:
           # `latest` it wins over the rc by plain semver compare.
           STABLE="$(npm view @deepseek-ai/dsh@latest version)"
           RC="$(npm view @deepseek-ai/dsh@next version 2>/dev/null || true)"
-          # 2026-10-17 (0.2.1-rc.1 wave): pinned to `latest` until the 0.2.1
-          # migration lands — next=0.2.1-rc.1 dropped start/startContinuable
-          # from the SubagentRuntime types, and the plugin is still on the
-          # 0.2.0-rc.2 support line. Restore the newest-of-latest/next
-          # selection as part of that migration.
+          # 2026-10-17 (0.2.1 migration): restore the newest-of(latest,next)
+          # selection — prerelease-aware node compare, NOT sort -V (trap on
+          # record: sort -V ranks 0.2.1-rc.2 ABOVE 0.2.1 and would pick the
+          # older rc once a stable lands on `latest`).
           DSH_VERSION="$STABLE"
+          if [ -n "$RC" ] && node -e '
+            const parse = (v) => { const [core, pre] = v.split("-"); return { c: core.split(".").map(Number), pre } }
+            const A = parse(process.argv[1]), B = parse(process.argv[2])
+            for (let i = 0; i < 3; i++) {
+              if (A.c[i] !== B.c[i]) process.exit(A.c[i] > B.c[i] ? 0 : 1)
+            }
+            if ((A.pre === undefined) !== (B.pre === undefined)) process.exit(A.pre === undefined ? 0 : 1)
+            process.exit(String(A.pre ?? "") >= String(B.pre ?? "") ? 0 : 1)
+          ' "$RC" "$STABLE"; then
+            DSH_VERSION="$RC"
+          fi
           # The install goes into a scratch prefix as the publish wave's OWN
           # closure: every @deepseek-ai/* range the resolved version declares
           # is pinned to its base version via npm overrides. A plain
@@ -171,12 +182,22 @@ jobs:
           # `latest` it wins over the rc by plain semver compare.
           STABLE="$(npm view @deepseek-ai/dsh@latest version)"
           RC="$(npm view @deepseek-ai/dsh@next version 2>/dev/null || true)"
-          # 2026-10-17 (0.2.1-rc.1 wave): pinned to `latest` until the 0.2.1
-          # migration lands — next=0.2.1-rc.1 dropped start/startContinuable
-          # from the SubagentRuntime types, and the plugin is still on the
-          # 0.2.0-rc.2 support line. Restore the newest-of-latest/next
-          # selection as part of that migration.
+          # 2026-10-17 (0.2.1 migration): restore the newest-of(latest,next)
+          # selection — prerelease-aware node compare, NOT sort -V (trap on
+          # record: sort -V ranks 0.2.1-rc.2 ABOVE 0.2.1 and would pick the
+          # older rc once a stable lands on `latest`).
           DSH_VERSION="$STABLE"
+          if [ -n "$RC" ] && node -e '
+            const parse = (v) => { const [core, pre] = v.split("-"); return { c: core.split(".").map(Number), pre } }
+            const A = parse(process.argv[1]), B = parse(process.argv[2])
+            for (let i = 0; i < 3; i++) {
+              if (A.c[i] !== B.c[i]) process.exit(A.c[i] > B.c[i] ? 0 : 1)
+            }
+            if ((A.pre === undefined) !== (B.pre === undefined)) process.exit(A.pre === undefined ? 0 : 1)
+            process.exit(String(A.pre ?? "") >= String(B.pre ?? "") ? 0 : 1)
+          ' "$RC" "$STABLE"; then
+            DSH_VERSION="$RC"
+          fi
           # The install goes into a scratch prefix as the publish wave's OWN
           # closure: every @deepseek-ai/* range the resolved version declares
           # is pinned to its base version via npm overrides. A plain
