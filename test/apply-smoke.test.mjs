@@ -78,7 +78,13 @@ writeFileSync(
     ['use_agent', 'ask_agent'],
     'tools carry the configured names',
   )
-  assert.deepEqual(ctx.effects, ['dsh-subagent-registry:use_agent'], 'registration wrapped in a named effect')
+  // Both registrations wrap in named effects: the out-of-band child-composition
+  // seam (a no-op disposer while the mock lacks startActivation) and the tool.
+  assert.deepEqual(
+    ctx.effects,
+    ['dsh-subagent-registry:child-composition', 'dsh-subagent-registry:use_agent'],
+    'registrations wrapped in named effects',
+  )
 
   // The bundled usage/config skill provider registers unconditionally.
   assert.equal(ctx.registeredSkillProviders.length, 1, 'one bundled-skill provider registered')

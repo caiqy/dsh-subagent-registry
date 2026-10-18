@@ -14,7 +14,9 @@ import Query from '@deepseek-ai/dsh-session-query'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import Tools from '@deepseek-ai/dsh-tools'
 import FsLocal from '@deepseek-ai/dsh-fs-local'
-import Persistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as PersistenceModule from '@deepseek-ai/dsh-session-persistence-jsonl'
+// 0.2.0 exports the class as default; the 0.2.1 line exports a named apply plugin.
+const Persistence = PersistenceModule.default ?? PersistenceModule
 import Subagents from '@deepseek-ai/dsh-subagent'
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import Skills from '@deepseek-ai/dsh-skill'

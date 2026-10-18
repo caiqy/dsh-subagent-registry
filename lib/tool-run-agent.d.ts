@@ -23,6 +23,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { type SubagentStartRequest } from '@deepseek-ai/dsh-subagent';
 import { type ScopeKey } from '@deepseek-ai/dsh-scope';
+import { type ChildComposition } from './host-compat.ts';
 import { type AgentFile, type ThinkingLevel } from './agents-dir.ts';
 import { type ResumeMode } from './resume.ts';
 /** The writable knob surface for this plugin (a subset of the Config schema). */
@@ -168,7 +169,7 @@ export interface BuildStartRequestInput {
  *   lowered to `1` from 0.1.6-alpha.1 (upstream B-04) — is never binding
  *   here, since this plugin always passes an explicit `maxDepth`.
  */
-export declare function buildStartRequest(input: BuildStartRequestInput): Omit<SubagentStartRequest, 'signal'>;
+export declare function buildStartRequest(input: BuildStartRequestInput): Omit<SubagentStartRequest, 'signal'> & ChildComposition;
 /** Map a non-`completed` stop reason to a human headline for the parent model. */
 export declare function stopReasonError(reason: string): string;
 /** Read + parse one agent file, throwing a friendly, roster-aware error. */

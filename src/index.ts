@@ -38,6 +38,7 @@ import { runAgentTool, type RunAgentConfig } from './tool-run-agent.ts'
 import { askAgentTool } from './interactive.ts'
 import { registerDelegationGuidance } from './delegation-guidance.ts'
 import { registerPresetsRpc } from './presets-rpc.ts'
+import { installChildCompositionListener } from './host-compat.ts'
 
 // Profile-aware runtime synthesis (the read side of the model-profile
 // feature): dsh-tui-pi imports these from this package.
@@ -183,6 +184,13 @@ export function apply(ctx: Context, config: RunAgentConfig): void {
   let refreshRoster = async (): Promise<void> => {}
   // Web is optional: CLI/TUI mounts must keep their dispatch tools without Connection.
   ctx.inject?.(['connection', 'webServer'], web => registerPresetsRpc(web, dir, () => refreshRoster()))
+  // Activation hosts (the 0.2.1 line) carry a fresh child's persona and leaf
+  // scoping out-of-band: the start request no longer holds `persona` /
+  // `toolFilter`, so each dispatch reserves them under the child's durable id
+  // and this listener installs them on the child scope at the `subagent/start`
+  // edge — before the first prompt is queued. No-op on the 0.2.0 line (the
+  // request fields exist there; nothing is ever parked).
+  ctx.effect(() => installChildCompositionListener(ctx), 'dsh-subagent-registry:child-composition')
   const registerTool = (): void => {
     ctx.effect(() => {
       let definition = runAgentTool(ctx, runConfig)

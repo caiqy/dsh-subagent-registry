@@ -13,7 +13,9 @@ import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import FsLocal from '@deepseek-ai/dsh-fs-local'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlPersistenceModule from '@deepseek-ai/dsh-session-persistence-jsonl'
+// 0.2.0 exports the class as default; the 0.2.1 line exports a named apply plugin.
+const JsonlSessionPersistence = JsonlPersistenceModule.default ?? JsonlPersistenceModule
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import SkillRegistry from '@deepseek-ai/dsh-skill'

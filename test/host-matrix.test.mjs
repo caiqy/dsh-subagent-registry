@@ -8,7 +8,7 @@ const cwd = fileURLToPath(new URL('../', import.meta.url))
 const fixtures = process.argv.slice(2).length ? process.argv.slice(2) : ['host-activation', 'host-lifecycle']
 for (const [version, variable, directory] of [
   ['0.2.0-rc.2', 'DSH_TEST_RC2_CLOSURE_DIR', 'dsh-type-closure-rc2'],
-  ['0.2.1-alpha.2', 'DSH_TEST_ALPHA2_CLOSURE_DIR', 'dsh-type-closure'],
+  ['0.2.1-rc.2', 'DSH_TEST_021_CLOSURE_DIR', 'dsh-type-closure'],
 ]) {
   for (const fixture of fixtures) {
     const result = spawnSync(process.execPath, ['--import', './test/host-sdk-imports.mjs', `./test/${fixture}.test.mjs`], {

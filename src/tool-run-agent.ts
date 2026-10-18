@@ -22,6 +22,7 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
@@ -29,10 +30,11 @@ import type { Context } from '@deepseek-ai/cordis'
 // dsh-util-values — the same module dsh-tools itself sources it from.
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { ContentBlock, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { resolveChildDepth, finalAssistantOutput, type SubagentResult, type SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import { resolveChildDepth, finalAssistantOutput, type SubagentResult, type SubagentStartRequest, type SubagentActivation } from '@deepseek-ai/dsh-subagent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { scopeOf, type ScopeKey } from '@deepseek-ai/dsh-scope'
-import { createLegacyDescendantJoin, drainRunDescendants, legacySubagents } from './host-compat.ts'
+import { createLegacyDescendantJoin, drainRunDescendants, legacySubagents, reserveChildComposition, releaseChildComposition, type ChildComposition, type DispatchRequest } from './host-compat.ts'
 import { expandHome, listAgentFiles, parseAgentMarkdown, type AgentFile, type ThinkingLevel } from './agents-dir.ts'
 import { composeAgentRuntime } from './profile-resolution.ts'
 import { decideBackgroundMode } from './interactive.ts'
@@ -266,7 +268,7 @@ export interface BuildStartRequestInput {
  *   lowered to `1` from 0.1.6-alpha.1 (upstream B-04) — is never binding
  *   here, since this plugin always passes an explicit `maxDepth`.
  */
-export function buildStartRequest(input: BuildStartRequestInput): Omit<SubagentStartRequest, 'signal'> {
+export function buildStartRequest(input: BuildStartRequestInput): Omit<SubagentStartRequest, 'signal'> & ChildComposition {
   const { agentName, prompt, parent, persona, deep, toolName, leafDenyTools, hostKnownTools, model, displayName, thinking } = input
   // The child's absolute delegation depth, computed by the same authoritative
   // resolver the in-process driver uses (parent depth + 1, monotone floor).
@@ -281,7 +283,10 @@ export function buildStartRequest(input: BuildStartRequestInput): Omit<SubagentS
     ...modelOptions,
     ...(thinking !== undefined ? { reasoningEffort: thinking as ReasoningEffortId } : {}),
   }
-  const request: Omit<SubagentStartRequest, 'signal'> = {
+  // The inline `persona`/`toolFilter` composition is read by the 0.2.0 line's
+  // start request; the 0.2.1 line's dispatch strips it back off and reserves
+  // it out-of-band (see `activateWithReservedComposition`).
+  const request: Omit<SubagentStartRequest, 'signal'> & ChildComposition = {
     label: displayName ?? agentName,
     prompt: [{ type: 'text', text: prompt }],
     parent: parent as Parameters<typeof resolveChildDepth>[0],
@@ -358,7 +363,7 @@ async function settleForegroundRun(ctx: Context, run: ForegroundRun, agentName: 
 async function startLegacyForeground(
   ctx: Context,
   provider: string,
-  request: SubagentStartRequest,
+  request: SubagentStartRequest & ChildComposition,
 ): Promise<ForegroundRun> {
   const join = createLegacyDescendantJoin(ctx, request.signal)
   try {
@@ -403,6 +408,38 @@ async function startLegacyForeground(
     }
   } catch (error) {
     join.dispose()
+    throw error
+  }
+}
+
+/**
+ * Start one fresh child on an activation host (the 0.2.1 line). The start
+ * request no longer carries `persona`/`toolFilter` — the composition rides
+ * out-of-band: the child's durable id is reserved up front, the inline fields
+ * are parked under it (`reserveChildComposition`), and the id rides the spec;
+ * the `subagent/start` listener (`installChildCompositionListener`) installs
+ * them on the child scope at the start edge, before the first prompt is
+ * queued. A dispatch that never reaches the start edge releases the
+ * reservation.
+ */
+async function activateWithReservedComposition(
+  ctx: Context,
+  provider: string,
+  label: string,
+  request: DispatchRequest,
+  signal: AbortSignal,
+  delivery: 'parent' | 'caller',
+  parent: Agent,
+): Promise<SubagentActivation> {
+  const childId = randomUUID() as SessionId
+  reserveChildComposition(childId, parent.id, {
+    persona: request.persona,
+    ...(request.toolFilter !== undefined ? { toolFilter: request.toolFilter } : {}),
+  })
+  try {
+    return await ctx.subagents.startActivation({ provider, label, request, signal, delivery, childId })
+  } catch (error) {
+    releaseChildComposition(childId)
     throw error
   }
 }
@@ -555,13 +592,7 @@ export function runAgentTool(ctx: Context, cfg: RunAgentConfig) {
           thinking: runtime.thinking as ThinkingLevel | undefined,
         })
         const { childId } = typeof ctx.subagents.startActivation === 'function'
-          ? await ctx.subagents.startActivation({
-              provider: cfg.provider,
-              label,
-              delivery: 'parent',
-              request,
-              signal: exec.signal,
-            })
+          ? await activateWithReservedComposition(ctx, cfg.provider, label, request, exec.signal, 'parent', parent)
           : await legacySubagents(ctx).startContinuable({
               provider: cfg.provider,
               label,
@@ -671,13 +702,7 @@ export function runAgentTool(ctx: Context, cfg: RunAgentConfig) {
       const signal = exec.signal
 
       const run = typeof ctx.subagents.startActivation === 'function'
-        ? await ctx.subagents.startActivation({
-            provider: cfg.provider,
-            label: foregroundLabel(label),
-            request,
-            signal,
-            delivery: 'caller',
-          })
+        ? await activateWithReservedComposition(ctx, cfg.provider, foregroundLabel(label), request, signal, 'caller', parent)
         : await startLegacyForeground(ctx, cfg.provider, { ...request, label, signal })
       return {
         kind: 'agent-result' as const,

@@ -13,7 +13,9 @@ import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import FsLocal from '@deepseek-ai/dsh-fs-local'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlPersistenceModule from '@deepseek-ai/dsh-session-persistence-jsonl'
+// 0.2.0 exports the class as default; the 0.2.1 line exports a named apply plugin.
+const JsonlSessionPersistence = JsonlPersistenceModule.default ?? JsonlPersistenceModule
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import * as Fork from '@deepseek-ai/dsh-subagent-fork-in-process'
@@ -128,7 +130,8 @@ try {
   await restoreFork()
   const signal = new AbortController().signal
   const activationHost = typeof ctx.subagents.startActivation === 'function'
-  if (process.env.DSH_TEST_HOST_VERSION) assert.equal(activationHost, process.env.DSH_TEST_HOST_VERSION === '0.2.1-alpha.2')
+  if (process.env.DSH_TEST_HOST_VERSION) assert.equal(activationHost, process.env.DSH_TEST_HOST_VERSION !== '0.2.0-rc.2',
+    'the activation API is the 0.2.1-line dispatch path; the 0.2.0 line stays on start/startContinuable')
   if (!activationHost) parentJoin = createLegacyDescendantJoin(ctx, signal)
   const waitForChildren = () => activationHost ? ctx.subagents.waitForChildren(parent) : parentJoin.wait(parent)
   const tool = ctx.tools.get('use_agent', scope)
