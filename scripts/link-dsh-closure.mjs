@@ -14,16 +14,18 @@
  *
  * Relationship to package.json: the `@deepseek-ai/*` entries there are
  * OPTIONAL peerDependencies — release semantics for consumers ("expect the
- * host's copies, >=0.2.0-rc.2 || >=0.2.1-alpha.2"), not install specs. Optional peers are
- * never auto-installed (pnpm's auto-install-peers and npm's peer auto-install
- * both skip them), so they cannot materialize a second local copy in `.pnpm`.
- * That second copy is exactly what a hard dependency used to create, breaking
- * the cordis `declare module` augmentation (`Property 'settings' does not
- * exist on type 'Context'`) — which is why these packages moved to optional
- * peers (3a7c245, then 085ca03 marked them optional). Keep them optional
- * peers for consumers: never add hard dependencies, and never drop
- * the `optional: true` — a non-optional peer gets auto-installed under
- * pnpm's auto-install-peers and the second-copy breakage returns.
+ * host's copies, >=0.2.0-rc.2 || >=0.2.1-rc.1"), not install specs. Optional
+ * peers are never auto-installed (pnpm's auto-install-peers and npm's peer
+ * auto-install both skip them), so they cannot materialize a second local
+ * copy in `.pnpm`. That second copy is exactly what a hard dependency used to
+ * create, breaking the cordis `declare module` augmentation (`Property
+ * 'settings' does not exist on type 'Context'`) — which is why these packages
+ * moved to optional peers (3a7c245, then 085ca03 marked them optional). Keep
+ * them optional peers: never move them back to dependencies/devDependencies,
+ * and never drop the `optional: true` — a non-optional peer gets
+ * auto-installed under pnpm's auto-install-peers and the second-copy breakage
+ * returns. Likewise never add a hard dependency on any of them: a pinned
+ * second copy shadows the host's bundled closure just the same.
  *
  * pnpm still treats the closure links as extraneous — and, as it prunes
  * entries it once managed, the links can disappear after an install. This
@@ -54,9 +56,10 @@ const scopeDir = join(repoRoot, 'node_modules', '@deepseek-ai')
 
 /** The global dsh package's own `node_modules/@deepseek-ai` closure dir. */
 function findDshClosure() {
-  // 0) Explicit override for dev/typecheck against an unreleased dsh line,
-  //    e.g. a scratch closure from: npm i --prefix ~/tmp/dsh-alpha-closure @deepseek-ai/dsh@alpha
-  //    DSH_CLOSURE_DIR=~/tmp/dsh-alpha-closure/node_modules/@deepseek-ai node scripts/link-dsh-closure.mjs
+  // 0) Explicit override for dev/typecheck against a closure other than the
+  //    global CLI's own, e.g. a scratch closure from:
+  //    npm i --prefix ~/.tmp/dsh-021-rc2-closure @deepseek-ai/dsh@0.2.1-rc.2
+  //    DSH_CLOSURE_DIR=~/.tmp/dsh-021-rc2-closure/node_modules/@deepseek-ai node scripts/link-dsh-closure.mjs
   const override = process.env.DSH_CLOSURE_DIR
   if (override !== undefined && override !== "") {
     const dir = realpathSync(override)

@@ -7,7 +7,7 @@ configuration surface. For a quick start, see the [README](../README.md).
 
 ## Supported hosts
 
-The same package is tested on published DSH `0.2.0-rc.2` and `0.2.1-alpha.2` SDK closures. It selects public APIs before dispatch: `start` / `startContinuable` on the old host, `startActivation` with `caller` / `parent` delivery on the new host. A failed accepted call never falls back to another dispatch API.
+The same package is tested on published DSH `0.2.0-rc.2` and `0.2.1-rc.2` SDK closures. It selects public APIs before dispatch: `start` / `startContinuable` on the old host, `startActivation` with `caller` / `parent` delivery on the new host. A failed accepted call never falls back to another dispatch API.
 
 Both hosts support foreground resume and background follow-ups within their own persisted session format; cross-version session migration is not provided. Older resume waits use scoped public lifecycle events and descendant queries, including live grandchildren and parked continuables. Cancellation drains the owning forest using the host's available drain API. Session persistence and the host's `sessionQuery` service are required for catalog lookup and follow-ups.
 

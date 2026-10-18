@@ -12,7 +12,7 @@ description: "dsh 子代理注册表插件（@aiwayds/dsh-subagent-registry）�
 
 ## 双宿主支持
 
-同一插件包已在 DSH `0.2.0-rc.2` 与 `0.2.1-alpha.2` 的实际发布 SDK 上验证。按公开 API 自动选择：旧版前台 `start`、后台 `startContinuable`；新版 `startActivation`，前台 caller、后台 parent 投递。接口调用失败直接报错，不能换接口重复派发。续跑与追问分别读取各自宿主的会话格式，不提供跨版本迁移。宿主须挂载会话持久化及 `sessionQuery`；英文角色委派指导在两线保持相同文案。
+同一插件包已在 DSH `0.2.0-rc.2` 与 `0.2.1-rc.2` 的实际发布 SDK 上验证（RC/稳定线；alpha 线不支持）。按公开 API 自动选择（功能探测）：旧版前台 `start`、后台 `startContinuable`；新版 `startActivation`，前台 caller、后台 parent 投递，persona 与 leaf 工具限制在 `subagent/start` 边缘安装到子代理自身作用域。接口调用失败直接报错，不能换接口重复派发。续跑与追问分别读取各自宿主的会话格式，不提供跨版本迁移。宿主须挂载会话持久化及 `sessionQuery`；英文角色委派指导在两线保持相同文案。
 
 ## agent 定义格式（`<agentsDir>/<name>.md`）
 
@@ -171,7 +171,7 @@ grep dsh-subagent-registry ~/.dsh/profiles/<profile>/cordis.patch.yml
 | dump-config 里没有 insert 块 | 挂载 | 检查 profile 的 cordis.patch.yml，重新挂载后重启 |
 | 工具在、名册空 | agentsDir / 文件位置 / frontmatter | 见下方"排障" 1、2 |
 | 工具、名册都在，模型就是不调 | 模型选择 | 把 agent 的 `description` 写清"何时该派我"；TUI 面还可配合 tui-pi 的 registeredOnly |
-| 一调用就报 `ctx.subagents.start is not a function` | 加载了旧插件或宿主不在已验证范围 | 本地兼容版已验证 DSH `0.2.0-rc.2` 与 `0.2.1-alpha.2`；确认实际插件版本，更新后重启；不推断其他宿主版本兼容 |
+| 一调用就报 `ctx.subagents.start is not a function` | 加载了旧插件或宿主不在已验证范围 | 已验证 DSH `0.2.0-rc.2` 与 `0.2.1-rc.2`（RC/稳定线；alpha 线不支持）；确认实际插件版本，更新后重启；不推断其他宿主版本兼容 |
 
 ## 排障
 

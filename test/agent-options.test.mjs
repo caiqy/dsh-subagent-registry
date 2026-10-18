@@ -1,7 +1,7 @@
 // Verification for the native effort carrier and the `use_agent` tool's
 // dispatch branches — no LLM, no cordis runtime. Covers: buildStartRequest
 // projects the frontmatter `thinking` natively as
-// `agentOptions.reasoningEffort` (alpha hosts take it from there — there is
+// `agentOptions.reasoningEffort` (hosts take it from there — there is
 // no out-of-band carrier anymore); fresh / resume dispatch the right options,
 // resume failures never start fresh work, and a failing run surfaces as a
 // tool error while still disposing.

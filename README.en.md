@@ -27,9 +27,9 @@ partial work. No host patching, no code — a markdown file per agent.
   in the official subagent stack (bidirectional messaging, say) are inherited
   automatically; the native `subagent` tool keeps working alongside — the two
   coexist without interference.
-- **Pure plugin** — the same package supports the public subagent machinery in DSH `0.2.0-rc.2` and `0.2.1-alpha.2`; uninstalls cleanly at any time.
+- **Pure plugin** — supports the RC/stable line's public subagent machinery (compatibility validated through DSH `0.2.0-rc.2` and `0.2.1-rc.2`); uninstalls cleanly at any time. The alpha line is not supported.
 
-Dispatch is selected by public API availability: `0.2.1-alpha.2` uses `startActivation` with `caller` / `parent` delivery for foreground/background work; `0.2.0-rc.2` uses `start` / `startContinuable`. A selected call's failure is propagated without retrying through another dispatch API. Foreground resume uses public `agents.resume` with current composition and caller cancellation, but is outside manager capacity and `interrupt_agent` control; resumed children cannot use stock `send_message` to contact the parent. Background follow-ups remain managed. Failure to inspect or resume a selected session is an error; use explicit `fresh: true` to restart.
+Dispatch is selected by public API availability (feature detection, no version-number branches): the 0.2.1 line uses `startActivation` with `caller` / `parent` delivery for foreground/background work; the 0.2.0 line uses `start` / `startContinuable`. A selected call's failure is propagated without retrying through another dispatch API. On the 0.2.1 line the start request no longer carries a child persona or the leaf tool filter — the plugin installs the reserved persona section and leaf restriction on the child's own agent scope at the `subagent/start` edge (the same section and window the host's own composition uses), matching the 0.2.0-line request-field semantics. Foreground resume uses public `agents.resume` with current composition and caller cancellation, but is outside manager capacity and `interrupt_agent` control; resumed children cannot use stock `send_message` to contact the parent. Background follow-ups remain managed. Failure to inspect or resume a selected session is an error; use explicit `fresh: true` to restart.
 
 ## The three shipped agents
 
@@ -117,7 +117,7 @@ README. The skill is versioned and published with the package
 
 ## Installation
 
-**Validated on DSH `0.2.0-rc.2` and `0.2.1-alpha.2`**. The host must mount session persistence and `sessionQuery`. Resume and follow-ups use each host's own session format; cross-version migration is not provided.
+**Requires dsh >= 0.2.0-rc.2** (the RC/stable line; the alpha line is not supported). Compatibility validated through `0.2.0-rc.2` and `0.2.1-rc.2`. The host must mount session persistence and `sessionQuery`. Resume and follow-ups use each host's own session format; cross-version migration is not provided.
 
 Option A — mount a checkout into a dsh profile:
 
@@ -156,19 +156,19 @@ Prepare isolated SDKs from the plugin directory (reuse existing closures when av
 
 ```sh
 npm install --prefix ../../.tmp/dsh-type-closure-rc2 --ignore-scripts @deepseek-ai/dsh@0.2.0-rc.2 @deepseek-ai/dsh-session-query@0.2.0-rc.2
-npm install --prefix ../../.tmp/dsh-type-closure --ignore-scripts @deepseek-ai/dsh@0.2.1-alpha.2 @deepseek-ai/dsh-session-query@0.2.1-alpha.2 @deepseek-ai/dsh-working-directory@0.2.1-alpha.2
+npm install --prefix ../../.tmp/dsh-type-closure --ignore-scripts @deepseek-ai/dsh@0.2.1-rc.2 @deepseek-ai/dsh-session-query@0.2.1-rc.2 @deepseek-ai/dsh-working-directory@0.2.1-rc.2
 ```
 
-Override `DSH_TEST_RC2_CLOSURE_DIR` / `DSH_TEST_ALPHA2_CLOSURE_DIR` with other isolated `node_modules` directories. Only model responses are scripted; host services and persistence use their actual published implementations.
+Override `DSH_TEST_RC2_CLOSURE_DIR` / `DSH_TEST_021_CLOSURE_DIR` with other isolated `node_modules` directories. Only model responses are scripted; host services and persistence use their actual published implementations.
 
 ### The `@deepseek-ai/*` dependency contract (why optional peers)
 
 This repo declares the `@deepseek-ai/*` packages (`cordis`, `dsh-subagent`,
 `dsh-llm`, `schemastery`, …) as **optional peerDependencies** in releases
-(`>=0.2.0-rc.2 || >=0.2.1-alpha.2`). That is a deliberate two-layer split:
+(`>=0.2.0-rc.2 || >=0.2.1-rc.1`). That is a deliberate two-layer split:
 
 - **Release semantics (for consumers)**: the declaration says "use the host's
-  own copies, range `>=0.2.0-rc.2 || >=0.2.1-alpha.2`". Optional peers are never auto-installed
+  own copies, range `>=0.2.0-rc.2 || >=0.2.1-rc.1`". Optional peers are never auto-installed
   by pnpm or npm, so they cannot materialize a second copy in the profile's
   `node_modules` that shadows the host's bundled closure. What does break
   hosts is a hard dependency pinned to an old rc — that can render a 0.2.x
@@ -180,10 +180,11 @@ This repo declares the `@deepseek-ai/*` packages (`cordis`, `dsh-subagent`,
   the cordis `declare module` augmentation (`Property 'settings' does not
   exist on type 'Context'`).
 
-Maintenance rule: keep consumer entries as optional peers — never add hard
-dependencies, and never drop `optional: true` (a
+Maintenance rule: keep these entries as optional peers — never move them back
+to dependencies/devDependencies, and never drop `optional: true` (a
 non-optional peer is auto-installed under pnpm's `auto-install-peers` and the
-second-copy breakage returns).
+second-copy breakage returns). Likewise never add a hard dependency on any of
+them: a pinned second copy shadows the host's bundled closure just the same.
 
 ## Integration tests
 
