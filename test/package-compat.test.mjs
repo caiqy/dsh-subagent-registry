@@ -17,14 +17,14 @@ try {
   const packedRoot = join(directory, 'package')
   assert.deepEqual(JSON.parse(readFileSync(join(packedRoot, 'package.json'), 'utf8')), source)
   for (const name of Object.keys(source.peerDependencies).filter(name => name.startsWith('@deepseek-ai/dsh-'))) {
-    assert.equal(source.peerDependencies[name], '>=0.2.0-rc.2 || >=0.2.1-alpha.2', `${name} must retain both prerelease lines`)
+    assert.equal(source.peerDependencies[name], '>=0.2.0-rc.2 || >=0.2.1-rc.1', `${name} must retain both rc lines`)
     assert.equal(source.peerDependenciesMeta[name]?.optional, true, `${name} must use the host SDK`)
     assert.equal(source.dependencies?.[name], undefined, `${name} must not install a consumer-side copy`)
   }
   for (const name of readdirSync(join(cwd, 'lib'))) {
     assert.deepEqual(readFileSync(join(packedRoot, 'lib', name)), readFileSync(join(cwd, 'lib', name)), `${name} archive differs from the checked build`)
   }
-  console.log(`package-compat: PASS — ${source.version}, both optional peer lines, exact compiled archive contents`)
+  console.log(`package-compat: PASS — ${source.version}, both rc peer lines, exact compiled archive contents`)
 } finally {
   assert(directory.startsWith(join(tmpdir(), 'registry-package-')))
   rmSync(directory, { recursive: true, force: true })
