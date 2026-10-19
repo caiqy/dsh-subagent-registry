@@ -44,6 +44,7 @@ import { installChildCompositionListener } from './host-compat.ts'
 // feature): dsh-tui-pi imports these from this package.
 export { agentsDir, dshHome } from './agents-dir.ts'
 export { readAgentMaxRounds } from './agent-caps.ts'
+export { foregroundLabel, stripForegroundLabel } from './resume.ts'
 export { composeAgentRuntime, readModelProfilesDoc, workspaceProfileName } from './profile-resolution.ts'
 
 export const name = 'dsh-subagent-registry'

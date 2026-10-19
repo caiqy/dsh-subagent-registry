@@ -24,6 +24,7 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import { scopeOf } from '@deepseek-ai/dsh-scope'
 import * as Registry from '../lib/index.js'
 import { createLegacyDescendantJoin } from '../lib/host-compat.js'
+import { foregroundLabel } from '../lib/resume.js'
 
 class ScriptedAdapter extends LlmAdapter {
   script = []
@@ -146,7 +147,7 @@ try {
   assert.equal(textOf(await call({ fresh: true })), 'FG_OK')
   let rows = await ctx.subagents.listChildren(parent.id)
   assert.equal(rows.at(-1).mode, activationHost ? 'continuable' : 'one-shot')
-  assert.equal(rows.at(-1).label, activationHost ? '[use_agent foreground] worker' : 'worker')
+  assert.equal(rows.at(-1).label, activationHost ? foregroundLabel('worker') : 'worker')
   const count = rows.length
 
   adapter.script.push({ text: 'PARTIAL', limit: true })

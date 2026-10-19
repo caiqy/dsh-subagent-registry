@@ -73,9 +73,12 @@ try {
   assert.equal(readAgentMaxRounds('老法师', dir), 15)
   console.log('PASS unique display_name hit -> 15')
 
+  assert.equal(readAgentMaxRounds('[fg] workhorse', dir), 60)
+  assert.equal(readAgentMaxRounds('[fg] 老法师', dir), 15)
+  // v0.14.0 wrote the long form — pre-upgrade children keep their caps.
   assert.equal(readAgentMaxRounds('[use_agent foreground] workhorse', dir), 60)
   assert.equal(readAgentMaxRounds('[use_agent foreground] 老法师', dir), 15)
-  console.log('PASS managed foreground labels retain per-agent caps')
+  console.log('PASS managed foreground labels (both prefix forms) retain per-agent caps')
 
   // Agent without the key resolves to undefined (global cap), not an error.
   assert.equal(readAgentMaxRounds('rubber-duck', dir), undefined)

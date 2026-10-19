@@ -78,8 +78,17 @@ export interface ChildListEntry {
     readonly mode?: 'one-shot' | 'continuable' | 'external' | 'unknown';
     readonly label?: string;
 }
-/** Durable namespace separates managed foreground children from background conversations. */
+/**
+ * Durable namespace separates managed foreground children from background
+ * conversations. Kept short: the label is painted verbatim on every
+ * surface's running-agent line.
+ */
+export declare const FOREGROUND_LABEL_PREFIX = "[fg] ";
+/** v0.14.0 wrote the long form; still matched and stripped so pre-upgrade children stay resumable. */
+export declare const LEGACY_FOREGROUND_LABEL_PREFIX = "[use_agent foreground] ";
 export declare const foregroundLabel: (label: string) => string;
+/** The label without its foreground namespace marker (either form), trimmed. */
+export declare function stripForegroundLabel(label: string): string;
 export declare function pickLatestLabeledChild<T extends ChildListEntry>(entries: readonly T[], label: string): T | undefined;
 /** When `use_agent` should continue a prior interrupted run. */
 export type ResumeMode = 'auto' | 'opt-in' | 'off';

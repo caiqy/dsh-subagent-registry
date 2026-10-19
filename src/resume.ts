@@ -160,14 +160,31 @@ export interface ChildListEntry {
   readonly label?: string
 }
 
-/** Durable namespace separates managed foreground children from background conversations. */
-export const foregroundLabel = (label: string): string => `[use_agent foreground] ${label}`
+/**
+ * Durable namespace separates managed foreground children from background
+ * conversations. Kept short: the label is painted verbatim on every
+ * surface's running-agent line.
+ */
+export const FOREGROUND_LABEL_PREFIX = '[fg] '
+/** v0.14.0 wrote the long form; still matched and stripped so pre-upgrade children stay resumable. */
+export const LEGACY_FOREGROUND_LABEL_PREFIX = '[use_agent foreground] '
+
+export const foregroundLabel = (label: string): string => `${FOREGROUND_LABEL_PREFIX}${label}`
+
+/** The label without its foreground namespace marker (either form), trimmed. */
+export function stripForegroundLabel(label: string): string {
+  const trimmed = label.trim()
+  if (trimmed.startsWith(FOREGROUND_LABEL_PREFIX)) return trimmed.slice(FOREGROUND_LABEL_PREFIX.length)
+  if (trimmed.startsWith(LEGACY_FOREGROUND_LABEL_PREFIX)) return trimmed.slice(LEGACY_FOREGROUND_LABEL_PREFIX.length)
+  return trimmed
+}
 
 export function pickLatestLabeledChild<T extends ChildListEntry>(entries: readonly T[], label: string): T | undefined {
+  const managedLabels = [foregroundLabel(label), `${LEGACY_FOREGROUND_LABEL_PREFIX}${label}`]
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i]
     if (!(entry.mode === 'one-shot' && entry.label === label)
-      && !(entry.mode === 'continuable' && entry.label === foregroundLabel(label))) continue
+      && !(entry.mode === 'continuable' && entry.label !== undefined && managedLabels.includes(entry.label))) continue
     return entry
   }
   return undefined

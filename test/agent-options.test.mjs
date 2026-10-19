@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildStartRequest, runAgentTool } from '../lib/tool-run-agent.js'
+import { foregroundLabel } from '../lib/resume.js'
 
 // Hermetic model-profile environment: `composeAgentRuntime` (inside the tool
 // execute) reads `$DSH_HOME/model-profiles.json` and walks `.dsh-profile`
@@ -163,7 +164,7 @@ function fakeResumeBackend(prior, scriptTurn) {
   const spec = ctx.started[0]
   assert.equal(spec.provider, 'spawn')
   assert.equal(spec.delivery, 'caller', 'foreground result goes to its caller')
-  assert.equal(spec.label, '[use_agent foreground] thinker', 'foreground label marks the managed conversation')
+  assert.equal(spec.label, foregroundLabel('thinker'), 'foreground label marks the managed conversation')
   assert.equal(spec.signal, EXEC.signal, 'activation receives caller cancellation')
   assert.equal('label' in spec.request, false, 'label belongs to activation, not its request')
   assert.equal('signal' in spec.request, false, 'signal belongs to activation, not its request')

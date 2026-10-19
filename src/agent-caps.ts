@@ -17,6 +17,7 @@
  */
 
 import { listAgentFiles } from './agents-dir.ts'
+import { stripForegroundLabel } from './resume.ts'
 
 /**
  * The round cap declared on one agent's frontmatter, or `undefined` when the
@@ -33,7 +34,7 @@ import { listAgentFiles } from './agents-dir.ts'
  * crossing — file IO here is irrelevant.
  */
 export function readAgentMaxRounds(label: string, dir: string): number | undefined {
-  const name = label.trim().replace(/^\[use_agent foreground\] /, '')
+  const name = stripForegroundLabel(label)
   if (name === '') return undefined
   const { agents } = listAgentFiles(dir)
   const byName = agents.find((agent) => agent.meta.name === name)

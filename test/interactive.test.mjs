@@ -18,6 +18,7 @@ import {
 } from '../lib/interactive.js'
 import { parseAgentMarkdown } from '../lib/agents-dir.js'
 import { runAgentTool } from '../lib/tool-run-agent.js'
+import { foregroundLabel } from '../lib/resume.js'
 
 const ev = (type, data = {}) => ({ type, data })
 
@@ -628,7 +629,7 @@ try {
     const result = await tool.execute({ agent: 'worker', prompt: 'x', background: false }, EXEC)
     assert.equal(result.kind, 'agent-result', 'explicit background:false -> foreground activation')
     assert.equal(ctx.started[0]?.delivery, 'caller', 'foreground activation delivers to caller')
-    assert.equal(ctx.started[0]?.label, '[use_agent foreground] worker', 'foreground label marks the managed child')
+    assert.equal(ctx.started[0]?.label, foregroundLabel('worker'), 'foreground label marks the managed child')
     assert.equal(ctx.started[0]?.signal, EXEC.signal)
     assert.equal('label' in ctx.started[0].request, false)
     assert.equal('signal' in ctx.started[0].request, false)

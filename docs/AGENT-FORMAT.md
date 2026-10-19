@@ -90,7 +90,8 @@ recall layer, which this plugin now provides on top of the stock mechanisms:
 1. On each `use_agent` call, the plugin enumerates the calling conversation's
    prior foreground children (`ctx.subagents.listChildren`) and picks the
    newest matching child. Legacy one-shot labels remain supported; new
-   foreground labels are `[use_agent foreground] <display_name ?? name>`.
+   foreground labels are `[fg] <display_name ?? name>` (v0.14.0 wrote the
+   longer `[use_agent foreground] ` form, still matched for resume).
    Background children keep the plain label and cannot be selected for resume.
 2. The child's persisted event log is classified by its **last accounting
    `turn/end`**: anything other than `completed` (error, aborted, max-tokens,
@@ -197,9 +198,10 @@ Notes:
   `send_message` its parent mid-task, and the reply arrives in the parent's
   conversation as an agent message.
 - Background children use `display_name ?? agent name`; foreground children
-  on the activation host prefix it with `[use_agent foreground] `, while the
+  on the activation host prefix it with `[fg] ` (v0.14.0: the longer
+  `[use_agent foreground] `, still recognized), while the
   old host uses plain one-shot labels. `use_agent` resume
-  accepts that namespace or a legacy one-shot label;
+  accepts either namespace or a legacy one-shot label;
   `ask_agent` (when addressing by `agent`) tries the two candidates
   `[display_name ?? name, name]` and picks the newest match.
 

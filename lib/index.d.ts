@@ -20,6 +20,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { type RunAgentConfig } from './tool-run-agent.ts';
 export { agentsDir, dshHome } from './agents-dir.ts';
 export { readAgentMaxRounds } from './agent-caps.ts';
+export { foregroundLabel, stripForegroundLabel } from './resume.ts';
 export { composeAgentRuntime, readModelProfilesDoc, workspaceProfileName } from './profile-resolution.ts';
 export declare const name = "dsh-subagent-registry";
 /**

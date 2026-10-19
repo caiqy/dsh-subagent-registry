@@ -118,11 +118,26 @@ const NOOP_TRAILING_LOG = [
     child({ id: 'managed-foreground', mode: 'continuable', label: foregroundLabel('workhorse') }),
     child({ id: 'newest-background', mode: 'continuable', label: 'workhorse' }),
   ]
-  assert.equal(foregroundLabel('workhorse'), '[use_agent foreground] workhorse')
-  assert.equal(foregroundLabel('牛马狗'), '[use_agent foreground] 牛马狗')
+  assert.equal(foregroundLabel('workhorse'), '[fg] workhorse')
+  assert.equal(foregroundLabel('牛马狗'), '[fg] 牛马狗')
   assert.equal(pickLatestLabeledChild(entries, 'workhorse')?.id, 'managed-foreground', 'managed foreground continuable wins over legacy one-shot')
   assert.equal(pickLatestLabeledChild(entries.slice(0, 5), 'workhorse')?.id, 'newest-failed', 'legacy one-shot remains selectable')
   assert.equal(pickLatestLabeledChild([child({ mode: 'one-shot', label: foregroundLabel('workhorse') })], 'workhorse'), undefined, 'marked label only belongs to continuable foreground')
+  // v0.14.0 wrote the long `[use_agent foreground] ` prefix — those catalog
+  // rows must stay resumable after the short form shipped.
+  assert.equal(
+    pickLatestLabeledChild([child({ mode: 'continuable', label: '[use_agent foreground] workhorse' })], 'workhorse')?.id,
+    'x',
+    'v0.14.0 long form stays resumable',
+  )
+  assert.equal(
+    pickLatestLabeledChild([
+      child({ id: 'legacy', mode: 'continuable', label: '[use_agent foreground] workhorse' }),
+      child({ id: 'current', mode: 'continuable', label: foregroundLabel('workhorse') }),
+    ], 'workhorse')?.id,
+    'current',
+    'newest row wins regardless of prefix form',
+  )
   assert.equal(pickLatestLabeledChild(entries, 'other-agent')?.id, 'old-ok', 'label match filters')
   assert.equal(pickLatestLabeledChild(entries, 'missing'), undefined, 'no match -> undefined')
   assert.equal(pickLatestLabeledChild([], 'workhorse'), undefined, 'empty list -> undefined')
