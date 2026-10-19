@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-19
+
+### Changed
+- **Foreground namespace label shortened to `[fg] `** — the managed-foreground prefix written into the child's durable label drops from `[use_agent foreground] ` to `[fg] `, so the running-agent line on every surface (tui-pi, web) stops spending 18 columns on an internal marker. Resume matching (`pickLatestLabeledChild`) and the `maxRounds` label resolution still recognize the v0.14.0 long form, so pre-upgrade interrupted children remain resumable with their per-agent caps.
+
+## [0.14.0] - 2026-10-18
+
 ### Added
 - **Dual-host dispatch across the two supported RC lines** (contributed by @caiqy, PR #6) — one compiled package dispatches through public APIs on both DSH `0.2.0-rc.2` (`start` / `startContinuable`) and the `0.2.1` line (`startActivation` with `caller` / `parent` delivery), selected by feature detection with no version-number branches; a failed accepted call never retries through the other API. On the 0.2.1 line the start request no longer carries `persona`/`toolFilter` (upstream moved child composition to presets), so the plugin reserves the child's durable id, parks the composition, and installs it on the child's own agent scope at the `subagent/start` edge — the same window, persona section name and leaf restriction the host's own composition uses — matching the 0.2.0-line request-field semantics (maintainer review-fixup: the original contribution targeted `0.2.1-alpha.2` request shapes; re-based onto `0.2.1-rc.2`, the ecosystem wave line). Foreground resume stays fail-loud: a selected session that fails to inspect or resume errors out, and only an explicit `fresh: true` restarts.
 - **Role-aware delegation guidance** (contributed by @caiqy, PR #6) — when this plugin's dispatch tool is visible in the assembling scope, a concise English guidance block replaces the host's generated delegation paragraph: pick a matching roster role with a self-contained prompt, batch independent calls, keep foreground waits for dependent steps, and use `subagent_fork` only when inheriting the conversation is necessary. Unloading (or hiding/shadowing the tool) restores the host's stock text; scoped-tool and shadowed-definition edges are covered by tests.
@@ -13,7 +20,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Real-host regression matrix** (contributed by @caiqy, PR #6; closure legs re-targeted to the RC line by the maintainer) — `pnpm test:hosts` loads the same compiled plugin into two published SDK closures (`0.2.0-rc.2` and `0.2.1-rc.2`, per-package versions asserted) and exercises activation dispatch, lifecycle joins and descendant drains, guidance replacement, presets over a real web server and connection, and fail-loud resume end-to-end with only the model scripted.
 
 ### Changed
-- **Foreground namespace label shortened to `[fg] `** — the managed-foreground prefix written into the child's durable label drops from `[use_agent foreground] ` to `[fg] `, so the running-agent line on every surface (tui-pi, web) stops spending 18 columns on an internal marker. Resume matching (`pickLatestLabeledChild`) and the `maxRounds` label resolution still recognize the v0.14.0 long form, so pre-upgrade interrupted children remain resumable with their per-agent caps.
 - **Optional peer ranges re-expressed on the RC line** — every `@deepseek-ai/dsh-*` peer is now `>=0.2.0-rc.2 || >=0.2.1-rc.1` (the original PR's `>=0.2.1-alpha.2` OR-clause did not constitute a support promise; alpha is not a supported line); `@deepseek-ai/schemastery` stays `~3.18.4`. devDependencies pin the `0.2.1-rc.2` closure (`cordis` `~4.0.5`), and build/check run against it (maintainer review-fixup).
 - **`pnpm-lock.yaml` regenerated in sync with `package.json`** — the original PR shipped a stale lockfile and could not pass `pnpm install --frozen-lockfile` (maintainer review-fixup).
 - **`package.json` version field reverted to the pre-PR value** — releases stamp the version at publish time (the changelog leads); the field had been bumped to an already-published number (maintainer review-fixup).
