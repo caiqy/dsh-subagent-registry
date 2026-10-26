@@ -99,6 +99,10 @@ seed_profile() {
 # boot_smoke <profile-name>
 # Real boot: silent survival to the timeout = healthy; a fast death WITHOUT
 # a loader error is unexpected; any loader error text = broken plugin tree.
+# A "disabling profile plugin row" line is its own failure class (the host
+# pre-flight gate disabled a plugin over an exact-version conflict — the
+# foreign-tower shadowing seen 10-19 and 10-26) even when the boot itself
+# would otherwise survive, so it fails the probe explicitly.
 boot_smoke() {
   local p="$1" out status
   out=$(timeout 25 dsh --profile "$p" 2>&1)
@@ -107,12 +111,145 @@ boot_smoke() {
     echo "$out" | head -5
     return 1
   fi
+  if echo "$out" | grep -qi "disabling profile plugin row"; then
+    echo "$out" | grep -i "disabling profile plugin row" | head -3
+    return 1
+  fi
   if [ "$status" -eq 0 ] || [ "$status" -eq 124 ]; then
     return 0
   fi
   echo "$out" | head -5
   return 1
 }
+
+# --- the #3 packaging class: peer auto-install shadowing (static, all pkgs) -
+# npm auto-installs HARD peers, resolving them from the stable tower; those
+# exact-pinned @deepseek-ai copies then shadow the host closure and the host
+# pre-flight gate disables the plugin rows (10-26: cron 0.6.0 red on the
+# rc.3 host; 10-19 same class). The fix contract is
+# peerDependenciesMeta.optional on every @deepseek-ai peer — llm-proxy 0.7.3
+# and tui-pi 2.28.2 shipped it 10-20, cron 0.6.1 on 10-26. This audit sweeps
+# EVERY published @aiwayds package because the deep-probe loop below only
+# covers four; the list comes live from the registry search API, unioned
+# with the built-in baseline so a search outage can only shrink the
+# discovery of NEW packages, never drop a known one. Deprecated packages
+# are skipped (jev-dispatch predates the contract and points at its
+# renamed successor). Any @deepseek-ai peer without optional:true fails.
+PEER_AUDIT_BASELINE=(
+  "@aiwayds/dsh-agent-dispatch"
+  "@aiwayds/dsh-approval-policy"
+  "@aiwayds/dsh-ask-router"
+  "@aiwayds/dsh-cron"
+  "@aiwayds/dsh-dcp"
+  "@aiwayds/dsh-feishu"
+  "@aiwayds/dsh-jev-core"
+  "@aiwayds/dsh-llm-net-retry"
+  "@aiwayds/dsh-llm-proxy"
+  "@aiwayds/dsh-llm-stats"
+  "@aiwayds/dsh-mcp-adapter"
+  "@aiwayds/dsh-model-sync"
+  "@aiwayds/dsh-profile-switch"
+  "@aiwayds/dsh-self-improve"
+  "@aiwayds/dsh-subagent-registry"
+  "@aiwayds/dsh-topics-memory"
+  "@aiwayds/dsh-tui-pi"
+  "@aiwayds/dsh-vault"
+  "@aiwayds/dsh-web-search-anysearch"
+  "@aiwayds/dsh-web-search-tavily"
+)
+
+discover_scope_packages() {
+  npm search "aiwayds" --json --searchlimit=100 --registry="$REGISTRY" 2>/dev/null \
+    | node -e '
+        let s = "";
+        process.stdin.on("data", (d) => (s += d));
+        process.stdin.on("end", () => {
+          try {
+            const rows = JSON.parse(s);
+            for (const r of rows) if (typeof r.name === "string" && r.name.startsWith("@aiwayds/")) console.log(r.name);
+          } catch { /* search outage — the union with the baseline below still runs */ }
+        });
+      '
+}
+
+# audit_peer_meta <pkg> — echo OK / SKIP(deprecated) / VIOLATION:...
+# npm view collapses a multi-field query to the bare value of the single
+# existing field when the others are absent (cron 0.6.0: no deprecated, no
+# meta → the JSON IS the peers object), so the parser detects that bare
+# shape — top-level keys look like "@scope/name" — and wraps it. The
+# deprecation check rides a separate one-field call for the same reason.
+# The body runs inside an IIFE because node -e rejects a top-level return.
+audit_peer_meta() {
+  node -e '
+    (() => {
+    const { execFileSync } = require("child_process");
+    // node -e has no script path in process.argv: argv[1] and argv[2] are the
+    // first two args after the -e script itself.
+    const pkg = process.argv[1];
+    const registry = process.argv[2];
+    const view = (fields) => execFileSync("npm",
+      ["view", pkg, ...fields, "--json", "--registry", registry],
+      { encoding: "utf8", timeout: 45000 });
+    let raw;
+    try { raw = view(["deprecated"]); } catch { raw = ""; }
+    if (raw.trim().startsWith("\"")) {
+      console.log("SKIP(deprecated)"); return;
+    }
+    let parsed;
+    try { parsed = JSON.parse(view(["peerDependencies", "peerDependenciesMeta"])); } catch (e) {
+      // Two classes land here: a package with no peers at all (field missing,
+      // npm exits non-zero) and a registry/network failure. The latter must
+      // NOT read as OK — a silent audit is a false green.
+      const errText = String((e && e.stderr) || "") + String((e && e.stdout) || "") + String((e && e.message) || "");
+      if (/ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|network/i.test(errText)) {
+        console.log("VIOLATION: cannot read package metadata from the registry (npm view failed: " + String((e && e.message) || "").split("\n")[0] + ")");
+        return;
+      }
+      console.log("OK"); return;
+    }
+    const looksBare = Object.keys(parsed).length > 0
+      && Object.keys(parsed).every((k) => k.includes("/"));
+    const peers = looksBare ? parsed : (parsed.peerDependencies || {});
+    const opt = looksBare ? {} : (parsed.peerDependenciesMeta || {});
+    const hard = Object.keys(peers).filter((p) => p.startsWith("@deepseek-ai/") && !(opt[p] && opt[p].optional));
+    if (hard.length === 0) { console.log("OK"); return; }
+    console.log("VIOLATION: hard @deepseek-ai peers auto-install from the stable tower and shadow the host closure: " + hard.map((p) => p + "@" + peers[p] + " (optional:" + (opt[p] && opt[p].optional ? "true" : "false") + ")").join(", "));
+    })();
+  ' "$1" "$REGISTRY"
+}
+
+note "peer-meta audit — every published @aiwayds package (the #3 class: hard peers shadow the host closure)"
+SEARCHED="$(discover_scope_packages | sort -u)"
+PEER_PACKAGES="$( { printf '%s\n' "${PEER_AUDIT_BASELINE[@]}"; [ -n "$SEARCHED" ] && printf '%s\n' "$SEARCHED"; } | sort -u )"
+AUDIT_TOTAL=0
+AUDIT_SKIP=0
+AUDIT_BAD=0
+while IFS= read -r pkg; do
+  [ -n "$pkg" ] || continue
+  AUDIT_TOTAL=$((AUDIT_TOTAL + 1))
+  verdict="$(audit_peer_meta "$pkg")"
+  case "$verdict" in
+    OK) : ;;
+    SKIP*) AUDIT_SKIP=$((AUDIT_SKIP + 1)); ;;
+    VIOLATION*)
+      AUDIT_BAD=$((AUDIT_BAD + 1))
+      fail "peer audit: $pkg — $(printf '%s' "$verdict" | sed 's/^VIOLATION: //')"
+      ;;
+    *)
+      # An empty/unknown verdict means the auditor itself crashed — that must
+      # never read as a pass, or the sweep dies into a false green.
+      AUDIT_BAD=$((AUDIT_BAD + 1))
+      fail "peer audit: $pkg — unreadable verdict (auditor crashed), package unverified"
+      ;;
+  esac
+done <<EOF
+$PEER_PACKAGES
+EOF
+if [ "$AUDIT_BAD" -eq 0 ]; then
+  ok "peer audit: $AUDIT_TOTAL packages swept ($AUDIT_SKIP deprecated skipped), zero hard @deepseek-ai peers"
+else
+  fail "peer audit: $AUDIT_BAD of $AUDIT_TOTAL packages violate the optional-peer contract (see the FAIL lines above)"
+fi
 
 # --- the #2 packaging class: one probe per fixed plugin, versions live ------
 # Floors = the versions that carried the fix; a resolved latest below its
@@ -141,10 +278,10 @@ for entry in "${PACKAGES[@]}"; do
   if install_published "$pkg" "$ver" "$P"; then
     ok "npm install with lifecycle scripts exited 0"
   fi
-  if [ ! -e "$P/node_modules/$pkg/node_modules/@deepseek-ai" ]; then
-    ok "closure linker stood down in the consumer tree"
+  if [ ! -e "$P/node_modules/$pkg/node_modules/@deepseek-ai" ] && [ ! -d "$P/node_modules/@deepseek-ai" ]; then
+    ok "closure linker stood down; consumer tree carries no @deepseek-ai tower (nested + top level)"
   else
-    fail "linker materialized @deepseek-ai inside the consumer package"
+    fail "@deepseek-ai materialized in the consumer tree (nested: $( [ -e "$P/node_modules/$pkg/node_modules/@deepseek-ai" ] && echo yes || echo no), top-level: $( [ -d "$P/node_modules/@deepseek-ai" ] && echo yes || echo no)) — foreign-tower shadowing, the 10-19/10-26 class"
   fi
   seed_profile "$P" "$pkg"
   if dsh --profile "$name" --dump-config 2>/dev/null | grep -q "$name"; then
