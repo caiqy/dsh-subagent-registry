@@ -37,7 +37,7 @@ if (diagnostics.length) {
   })
   const js = result.outputFiles.find(file => file.path.endsWith('.js')).text
   const css = result.outputFiles.find(file => file.path.endsWith('.css'))?.text ?? ''
-  const factory = `window.__ModuleLoader__.load({id:"@aiwayds/dsh-subagent-registry",factory:(require)=>{const __PRESETS_CSS__=${JSON.stringify(css)};const module={exports:{}};const exports=module.exports;\n${js}\nreturn module.exports;}});\n`
+  const factory = `window.__ModuleLoader__.load({id:"@caiqy/dsh-subagent-registry",factory:(require)=>{const __PRESETS_CSS__=${JSON.stringify(css)};const module={exports:{}};const exports=module.exports;\n${js}\nreturn module.exports;}});\n`
   // Assert the artifact protocol and that host singletons remain require() edges.
   if (!css || !js.includes('require("react') || !js.includes('require("@deepseek-ai/dsh-client-ui-primitives")')) throw new Error('Missing scoped CSS or host singleton externals')
   if (check) console.log(`Client types and factory build passed${sdk ? ` against ${sdk}` : ''}; ${Buffer.byteLength(factory)} bytes (no files written).`)

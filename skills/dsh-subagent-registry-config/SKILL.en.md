@@ -70,7 +70,7 @@ The plugin has no settings namespace; its configuration hangs on the **patch mou
 ```yaml
 - insert:
     - id: dsh-subagent-registry
-      name: '@aiwayds/dsh-subagent-registry'
+      name: '@caiqy/dsh-subagent-registry'
       config:
         agentsDir: ~/.dsh/agents   # agent file directory; only this default literal is resolved against $DSH_HOME, custom paths are used verbatim (~ expanded)
         provider: spawn            # which subagent provider the children run through (reuses dsh-base's spawn)
@@ -120,8 +120,8 @@ Locate the problem in three steps — "installed → mounted → wired" — then
 ### Step 1: installed? (is the package in the profile)
 
 ```sh
-dsh plugin --profile <profile> list    # really just forwards the arguments to pnpm in the profile dir; @aiwayds/dsh-subagent-registry should appear
-ls ~/.dsh/profiles/<profile>/node_modules/@aiwayds/   # equivalent check
+dsh plugin --profile <profile> list    # really just forwards the arguments to pnpm in the profile dir; @caiqy/dsh-subagent-registry should appear
+ls ~/.dsh/profiles/<profile>/node_modules/@caiqy/   # equivalent check
 ```
 
 ### Step 2: mounted? (did the insert block reach the composition layer)
@@ -155,7 +155,7 @@ Note: dump-config shows the patch layer's **composition result**, not the runtim
 
 | Symptom | Where it broke | How to fix |
 | --- | --- | --- |
-| The plugin is missing from `dsh plugin … list` | Install | `dsh plugin --profile <profile> add @aiwayds/dsh-subagent-registry`, restart dsh |
+| The plugin is missing from `dsh plugin … list` | Install | `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry`, restart dsh |
 | No insert block in dump-config | Mount | Check the profile's cordis.patch.yml, remount and restart |
 | Tool present, roster empty | agentsDir / file location / frontmatter | See "Troubleshooting" 1 and 2 below |
 | Tool and roster present, the model just doesn't call | Model choice | Write the agent's `description` to say clearly "when to dispatch me"; on the TUI, tui-pi's registeredOnly can also help |

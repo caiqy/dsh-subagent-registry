@@ -1,6 +1,6 @@
 {
-  "name": "@aiwayds/dsh-subagent-registry",
-  "version": "0.17.0",
+  "name": "@caiqy/dsh-subagent-registry",
+  "version": "0.17.0-dsh.1",
   "description": "dsh plugin: register locally-defined custom agents (~/.dsh/agents/*.md) as callable subagents via the use_agent tool, with continuable background dispatch and ask_agent follow-ups",
   "type": "module",
   "main": "lib/index.js",
@@ -21,9 +21,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fan56/dsh-subagent-registry.git"
+    "url": "git+https://github.com/caiqy/dsh-subagent-registry.git"
   },
-  "homepage": "https://github.com/fan56/dsh-subagent-registry",
+  "homepage": "https://github.com/caiqy/dsh-subagent-registry",
   "engines": {
     "node": ">=22.19.0"
   },

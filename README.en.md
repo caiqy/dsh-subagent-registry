@@ -1,5 +1,7 @@
 # dsh-subagent-registry
 
+Personal distribution: `@caiqy/dsh-subagent-registry@0.17.0-dsh.1`, based on upstream v0.17.0 (`36b4acf`). Upstream author fliu56 and the MIT license are preserved. `main` tracks upstream; personal releases use `dsh/enhanced` and [publish-caiqy.yml](.github/workflows/publish-caiqy.yml), with tags `caiqy-subagent-registry-v<version>`. Do not enable both distributions together: they share Cordis, tool and skill IDs. Releases use GitHub-hosted Node 24 / npm 11, OIDC with environment `npm-publish`, the `dsh` dist-tag and provenance; the workflow verifies public SRI and downloaded bytes. First run `pnpm release subagent-registry 0.17.0-dsh.1 --check` in the parent workspace after pushing source.
+
 [中文](./README.md)
 
 Register locally-defined custom agents (`~/.dsh/agents/*.md`) as callable
@@ -141,7 +143,7 @@ Option A — mount a checkout into a dsh profile:
 dsh plugin --profile tui add ~/github/dsh-subagent-registry
 ```
 
-Option B — npm dependency: `npm i @aiwayds/dsh-subagent-registry`, then load
+Option B — npm dependency: `npm i @caiqy/dsh-subagent-registry`, then load
 the plugin under the stable id `dsh-subagent-registry` in your profile's
 config, or mount it through a bundle patch (see `cordis.patch.yml` in this
 repo for the pattern).
@@ -149,7 +151,7 @@ repo for the pattern).
 ## Uninstall
 
 ```sh
-dsh plugin --profile <name> remove @aiwayds/dsh-subagent-registry
+dsh plugin --profile <name> remove @caiqy/dsh-subagent-registry
 ```
 
 The host splices the plugin out of the profile; restart dsh and the

@@ -2,6 +2,10 @@
 
 [English](./README.en.md)
 
+个人发行包为 `@caiqy/dsh-subagent-registry@0.17.0-dsh.1`，基于上游 v0.17.0（`36b4acf`），保留上游作者 fliu56 与 MIT 许可证。上游历史见 CHANGELOG.md。`main` 跟随上游，个人发行从长期 `dsh/enhanced` 分支运行 [publish-caiqy.yml](.github/workflows/publish-caiqy.yml)，个人 tag 前缀为 `caiqy-subagent-registry-v`。不与上游包同时启用：两者共享 Cordis id、工具和技能。
+
+发布使用 GitHub-hosted Node 24 / npm 11、npm Trusted Publishing（OIDC）、Environment `npm-publish`。先推送源码，再从父工作区运行 `pnpm release subagent-registry 0.17.0-dsh.1 --check`，去掉 `--check` 才发布同一已验证 tarball 到 npm `dsh` tag（含 provenance）；发布后校验 npm SRI 与实际下载字节。首次 npm 包与 Trusted Publisher 配置需由维护者完成。安装可使用 `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry@dsh`。
+
 把 `~/.dsh/agents/*.md` 定义的自定义 agent（frontmatter 元数据 + markdown
 正文作为 persona/system prompt）注册成 [dsh](https://github.com/deepseek-ai/deepseek-harness)
 可按名调用的 subagent：主对话通过 `use_agent` 点名调用，`ask_agent` 对后台
@@ -123,14 +127,14 @@ Frontmatter 字段：`name`（必填）、`description`、`display_name`、`mode
 dsh plugin --profile tui add ~/github/dsh-subagent-registry
 ```
 
-方式 B — npm 依赖：`npm i @aiwayds/dsh-subagent-registry`，然后在 profile
+方式 B — npm 依赖：`npm i @caiqy/dsh-subagent-registry`，然后在 profile
 配置里以稳定 id `dsh-subagent-registry` 加载，或通过 bundle patch 挂载
 （挂法见本仓 `cordis.patch.yml`）。
 
 ## 卸载
 
 ```sh
-dsh plugin --profile <name> remove @aiwayds/dsh-subagent-registry
+dsh plugin --profile <name> remove @caiqy/dsh-subagent-registry
 ```
 
 宿主会把插件从 profile 里摘除；重启 dsh 后 `use_agent` / `ask_agent` 工具

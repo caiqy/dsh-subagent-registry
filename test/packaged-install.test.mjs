@@ -7,7 +7,7 @@
 // Run: node test/packaged-install.test.mjs  (after `npm run build`)
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -49,8 +49,13 @@ try {
     // A failed guard must reach realpathSync and fail, even on machines without dsh.
     env: { ...process.env, DSH_CLOSURE_DIR: join(scratch, 'missing-closure') },
   })
-  const installed = join(consumer, 'node_modules', '@aiwayds', 'dsh-subagent-registry')
+  const installed = join(consumer, 'node_modules', '@caiqy', 'dsh-subagent-registry')
   assert.ok(existsSync(join(installed, 'scripts', 'link-dsh-closure.mjs')), 'installed package carries the hook target')
+  const metadata = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'))
+  assert.equal(metadata.name, '@caiqy/dsh-subagent-registry')
+  assert.ok(readFileSync(join(installed, 'cordis.patch.yml'), 'utf8').includes(`name: '${metadata.name}'`), 'bundle imports the installed personal package')
+  assert.ok(readFileSync(join(installed, 'cordis.patch.yml'), 'utf8').includes('id: dsh-subagent-registry'), 'stable Cordis id is retained')
+  assert.ok(readFileSync(join(installed, 'lib', 'client.js'), 'utf8').includes(`id:"${metadata.name}"`), 'client loader registers the installed package name')
 
   // 4. Consumer safety: the linker must have stood down — no @deepseek-ai
   //    scope dir materialized inside the consumer's package tree.

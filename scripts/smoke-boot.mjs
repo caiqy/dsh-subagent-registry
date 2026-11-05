@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'))
-const ownName = pkg.name // @aiwayds/dsh-subagent-registry
+const ownName = pkg.name // @caiqy/dsh-subagent-registry
 // Windows needs cmd.exe to launch npm's .cmd shim; keep paths as separate arguments.
 const npm = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm'
 const npmArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm.cmd'] : []

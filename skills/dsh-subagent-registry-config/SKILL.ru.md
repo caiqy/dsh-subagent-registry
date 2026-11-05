@@ -1,6 +1,6 @@
 ---
 name: dsh-subagent-registry-config
-description: "Руководство по плагину реестра суб-агентов dsh (@aiwayds/dsh-subagent-registry): использование и настройка. Читайте при работе с суб-агентами, use_agent/ask_agent, каталогом agents, написании agent .md, продолжении (resume) прерванных запусков или настройке плагина: frontmatter ~/.dsh/agents/*.md, ключи entry config, мастер создания агентов через ask_user_question, диагностика. Триггеры: суб-агент, agent, use_agent, ask_agent, agents, продолжение, resume, отладка, не вызывается, язык."
+description: "Руководство по плагину реестра суб-агентов dsh (@caiqy/dsh-subagent-registry): использование и настройка. Читайте при работе с суб-агентами, use_agent/ask_agent, каталогом agents, написании agent .md, продолжении (resume) прерванных запусков или настройке плагина: frontmatter ~/.dsh/agents/*.md, ключи entry config, мастер создания агентов через ask_user_question, диагностика. Триггеры: суб-агент, agent, use_agent, ask_agent, agents, продолжение, resume, отладка, не вызывается, язык."
 ---
 
 # Руководство по dsh-subagent-registry (пользовательские суб-агенты / use_agent)
@@ -91,7 +91,7 @@ persona system prompt по описанию пользователя, **испо
 ```yaml
 - insert:
     - id: dsh-subagent-registry
-      name: '@aiwayds/dsh-subagent-registry'
+      name: '@caiqy/dsh-subagent-registry'
       config:
         agentsDir: ~/.dsh/agents   # каталог файлов агентов; только этот литерал по умолчанию разрешается через $DSH_HOME, пользовательские пути используются как есть (с раскрытием ~)
         provider: spawn            # через какой subagent provider запускаются агенты (переиспользует spawn из dsh-base)
@@ -183,8 +183,8 @@ persona system prompt по описанию пользователя, **испо
 ### Шаг 1: установлен ли (есть ли пакет в профиле)
 
 ```sh
-dsh plugin --profile <profile> list    # по сути передаёт аргументы pnpm из каталога профиля; должен показать @aiwayds/dsh-subagent-registry
-ls ~/.dsh/profiles/<profile>/node_modules/@aiwayds/   # эквивалентная проверка
+dsh plugin --profile <profile> list    # по сути передаёт аргументы pnpm из каталога профиля; должен показать @caiqy/dsh-subagent-registry
+ls ~/.dsh/profiles/<profile>/node_modules/@caiqy/   # эквивалентная проверка
 ```
 
 ### Шаг 2: смонтирован ли (попал ли insert-блок в слой композиции)
@@ -227,7 +227,7 @@ grep dsh-subagent-registry ~/.dsh/profiles/<profile>/cordis.patch.yml
 
 | Симптом | Где искать | Куда чинить |
 | --- | --- | --- |
-| В `dsh plugin … list` нет плагина | Установка | `dsh plugin --profile <profile> add @aiwayds/dsh-subagent-registry`, перезапустить dsh |
+| В `dsh plugin … list` нет плагина | Установка | `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry`, перезапустить dsh |
 | В dump-config нет insert-блока | Монтирование | Проверить cordis.patch.yml профиля, пересмонтировать и перезапустить |
 | Инструмент есть, реестр пуст | agentsDir / расположение файлов / frontmatter | См. «Устранение неполадок» 1, 2 ниже |
 | Инструмент и реестр есть, модель не вызывает | Выбор модели | Написать в `description` агента «когда меня запускать»; в TUI можно дополнительно использовать registeredOnly из tui-pi |

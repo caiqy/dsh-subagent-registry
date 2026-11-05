@@ -1,6 +1,6 @@
 ---
 name: dsh-subagent-registry-config
-description: "dsh 子代理注册表插件（@aiwayds/dsh-subagent-registry）使用与配置指南。凡涉及自定义子代理、use_agent/ask_agent、agents 目录、agent .md 编写、子代理续跑，或要调整本插件配置时先读本指南：~/.dsh/agents/*.md frontmatter 全键（name/deep/display_name/description/model/thinking/background/maxRounds）、entry config 七键（agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language）、ask_user_question 代写 agent 文件向导、中断 run 续跑语义、接入与使用体检（插件装没装/挂没挂、模型用没用过）。触发词：子代理、agent、use_agent、ask_agent、agents 目录、续跑、resume、体检、调试、没调用、语言、换语言。"
+description: "dsh 子代理注册表插件（@caiqy/dsh-subagent-registry）使用与配置指南。凡涉及自定义子代理、use_agent/ask_agent、agents 目录、agent .md 编写、子代理续跑，或要调整本插件配置时先读本指南：~/.dsh/agents/*.md frontmatter 全键（name/deep/display_name/description/model/thinking/background/maxRounds）、entry config 七键（agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language）、ask_user_question 代写 agent 文件向导、中断 run 续跑语义、接入与使用体检（插件装没装/挂没挂、模型用没用过）。触发词：子代理、agent、use_agent、ask_agent、agents 目录、续跑、resume、体检、调试、没调用、语言、换语言。"
 ---
 
 # dsh-subagent-registry 使用指南（自定义子代理 / use_agent）
@@ -75,7 +75,7 @@ cordis.patch.yml `insert` 项的 `config:` 段，即 entry config）：
 ```yaml
 - insert:
     - id: dsh-subagent-registry
-      name: '@aiwayds/dsh-subagent-registry'
+      name: '@caiqy/dsh-subagent-registry'
       config:
         agentsDir: ~/.dsh/agents   # agent 文件目录；仅这个默认字面量按 $DSH_HOME 解析，自定义路径按字面使用（~ 展开）
         provider: spawn            # 子代理跑过哪个 subagent provider（复用 dsh-base 的 spawn）
@@ -140,8 +140,8 @@ frontmatter 键，官方没有轮数预算能力，继续由宿主 TUI 硬停梯
 ### 第 1 步：装了吗（包在不在 profile 里）
 
 ```sh
-dsh plugin --profile <profile> list    # 实为把参数原样转发给 profile 目录里的 pnpm；应看到 @aiwayds/dsh-subagent-registry
-ls ~/.dsh/profiles/<profile>/node_modules/@aiwayds/   # 等价查法
+dsh plugin --profile <profile> list    # 实为把参数原样转发给 profile 目录里的 pnpm；应看到 @caiqy/dsh-subagent-registry
+ls ~/.dsh/profiles/<profile>/node_modules/@caiqy/   # 等价查法
 ```
 
 ### 第 2 步：挂了吗（insert 块进了组合层没）
@@ -178,7 +178,7 @@ grep dsh-subagent-registry ~/.dsh/profiles/<profile>/cordis.patch.yml
 
 | 症状 | 断在哪 | 去哪修 |
 | --- | --- | --- |
-| `dsh plugin … list` 里没有本插件 | 安装 | `dsh plugin --profile <profile> add @aiwayds/dsh-subagent-registry`，重启 dsh |
+| `dsh plugin … list` 里没有本插件 | 安装 | `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry`，重启 dsh |
 | dump-config 里没有 insert 块 | 挂载 | 检查 profile 的 cordis.patch.yml，重新挂载后重启 |
 | 工具在、名册空 | agentsDir / 文件位置 / frontmatter | 见下方"排障" 1、2 |
 | 工具、名册都在，模型就是不调 | 模型选择 | 把 agent 的 `description` 写清"何时该派我"；TUI 面还可配合 tui-pi 的 registeredOnly |
