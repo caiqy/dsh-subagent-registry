@@ -15,8 +15,15 @@ function hostDelegationNames(text: string): string[] {
 export function registerDelegationGuidance(ctx: Context, dispatch: ToolDefinition, askToolName: string): () => void {
   return ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = await next()
-    // PTC exposes only its reserved transport on the wire; scoped schemas retain SDK tools.
-    const schemas = assembly.tools.some(tool => tool.name === 'run_code') ? ctx.tools.schemas(context.scope) : assembly.tools
+    // Since 0.2.2 the waterfall receives presentation only; declarations are
+    // attached afterwards. PTC likewise exposes only its reserved wire transport.
+    // Pass the admitted per-step set on new hosts; older hosts ignore argument 2.
+    const schemasForStep = ctx.tools.schemas as (
+      scope: typeof context.scope, toolSet?: unknown,
+    ) => ReturnType<typeof ctx.tools.schemas>
+    const schemas = !assembly.tools || assembly.tools.some(tool => tool.name === 'run_code')
+      ? schemasForStep.call(ctx.tools, context.scope, (context as { toolSet?: unknown }).toolSet)
+      : assembly.tools
     const visible = new Set(schemas.map(tool => tool.name))
     if (!visible.has(dispatch.name) || ctx.tools.get(dispatch.name, context.scope) !== dispatch) return assembly
 

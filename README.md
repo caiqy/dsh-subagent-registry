@@ -161,6 +161,8 @@ npm install --prefix ../../.tmp/dsh-type-closure --ignore-scripts @deepseek-ai/d
 
 可用 `DSH_TEST_RC2_CLOSURE_DIR` / `DSH_TEST_021_CLOSURE_DIR` 指向其他隔离环境的 `node_modules`；测试只将模型脚本化，服务与持久化使用对应版本的真实实现。
 
+展示钩子的独立回归支持 0.2.1-rc.2 和 0.2.2-rc.1；后者还验证真实 ToolRuntime 的每步条件准入、原生及 PTC 展示。使用 Node 24，设置 `DSH_TEST_CLOSURE_DIR` 为对应隔离 SDK 的 `node_modules`，`DSH_TEST_HOST_VERSION` 为准确版本，然后执行 `npm run test:guidance`。测试读取源码，不安装或重启 profile。0.2.2-rc.1 已使用从实际 Desktop 归档提取的完整闭包验证；这不等同于完整会话生命周期或在线模型验证。
+
 ### `@deepseek-ai/*` 依赖契约（为什么是 optional peer）
 
 本仓对 `@deepseek-ai/*`（`cordis`、`dsh-subagent`、`dsh-llm`、`schemastery` 等）
