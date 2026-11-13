@@ -1,6 +1,6 @@
 # dsh-subagent-registry
 
-Personal distribution: `@caiqy/dsh-subagent-registry@0.17.0-dsh.4`, based on upstream v0.17.0 (`36b4acf`) with selectively ported v0.20.0 compatibility fixes and roster controls. Upstream attribution is preserved; see LICENSE, LICENSE-MIT and NOTICE for Apache-2.0 integration and original MIT contributions. `main` tracks upstream; personal releases use `dsh/enhanced` and [publish-caiqy.yml](.github/workflows/publish-caiqy.yml), with tags `caiqy-subagent-registry-v<version>`. Do not enable both distributions together: they share Cordis, tool and skill IDs. Releases use GitHub-hosted Node 24 / npm 11, OIDC with environment `npm-publish`, the `dsh` dist-tag and provenance; the workflow verifies public SRI and downloaded bytes. First run `pnpm release subagent-registry 0.17.0-dsh.1 --check` in the parent workspace after pushing source.
+Personal distribution: `@caiqy/dsh-subagent-registry@0.17.0-dsh.5`, based on upstream v0.17.0 (`36b4acf`) with selectively ported v0.20.0 compatibility fixes and roster controls. Upstream attribution is preserved; see LICENSE, LICENSE-MIT and NOTICE for Apache-2.0 integration and original MIT contributions. `main` tracks upstream; personal releases use `dsh/enhanced` and [publish-caiqy.yml](.github/workflows/publish-caiqy.yml), with tags `caiqy-subagent-registry-v<version>`. Do not enable both distributions together: they share Cordis, tool and skill IDs. Releases use GitHub-hosted Node 24 / npm 11, OIDC with environment `npm-publish`, the `dsh` dist-tag and provenance; the workflow verifies public SRI and downloaded bytes. First run `pnpm release subagent-registry 0.17.0-dsh.1 --check` in the parent workspace after pushing source.
 
 [中文](./README.md)
 
@@ -170,6 +170,8 @@ npm run test:host # current SDK's real services/persistence/manager/spawn; scrip
 npm run test:hosts # same compiled plugin, two published SDK closures with version checks
 ```
 
+The published package has no install lifecycle hooks and needs no build-script approval for this plugin. After installing repository dependencies, explicitly run `npm run link-closure` when typechecking against the host closure (optionally set `DSH_CLOSURE_DIR`). Consumer installs never run this command automatically.
+
 Prepare isolated SDKs from the plugin directory (reuse existing closures when available):
 
 ```sh
@@ -192,7 +194,7 @@ This repo declares the `@deepseek-ai/*` packages (`cordis`, `dsh-subagent`,
   hosts is a hard dependency pinned to an old rc — that can render a 0.2.x
   host unbootable (a known community failure mode).
 - **Dev typecheck (for this repo)**: devDependencies pin the newer SDK;
-  `scripts/link-dsh-closure.mjs` (postinstall) symlinks
+  `scripts/link-dsh-closure.mjs` (explicit `npm run link-closure`) symlinks
   `node_modules/@deepseek-ai/*` to `DSH_CLOSURE_DIR` or the global dsh install's closure, keeping
   exactly one `@deepseek-ai/cordis` in the type graph — a second copy breaks
   the cordis `declare module` augmentation (`Property 'settings' does not

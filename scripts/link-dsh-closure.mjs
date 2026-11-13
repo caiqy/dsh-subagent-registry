@@ -1,5 +1,5 @@
 /**
- * Postinstall linker: point every `node_modules/@deepseek-ai/*` entry at the
+ * Development linker: point every `node_modules/@deepseek-ai/*` entry at the
  * global dsh closure.
  *
  * Why this exists: dsh-subagent-registry is a plugin that runs *inside* the
@@ -29,7 +29,7 @@
  *
  * pnpm still treats the closure links as extraneous — and, as it prunes
  * entries it once managed, the links can disappear after an install. This
- * script re-creates them on every `pnpm install` (postinstall).
+ * run `pnpm link-closure` after installing dependencies when these links are needed.
  *
  * It is a no-op (exit 0) when no global dsh install is found — a dev machine
  * without dsh simply cannot typecheck against dsh types.
@@ -41,8 +41,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-// Guard: this postinstall is a dev-machine convenience for THIS repo. The
-// published tarball ships scripts/ (the hook must resolve), but the linker
+// Guard: this explicit command is a dev-machine convenience for THIS repo. The
+// published tarball ships scripts/, but the linker
 // must never touch a consumer's node_modules there — it would delete their
 // @deepseek-ai packages and replace them with symlinks into their global dsh
 // closure. pnpm ≥10 blocks dependency lifecycle scripts by default, but npm

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.17.0-dsh.5] - 2026-11-13
+
+### Fixed
+- Remove the development-only `postinstall` hook so strict pnpm installs and upgrades do not require build-script approval. Keep `link-closure` as an explicit developer command; published runtime resources and optional SDK peers are unchanged.
+- Exercise the packed tarball through both npm and pnpm 11.28.5 with no build approvals, and reject install lifecycle hooks in the published manifest.
+
 ## [0.17.0-dsh.4] - 2026-11-13
 
 ### Fixed

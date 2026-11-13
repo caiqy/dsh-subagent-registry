@@ -2,7 +2,7 @@
 
 [English](./README.en.md)
 
-个人发行包为 `@caiqy/dsh-subagent-registry@0.17.0-dsh.4`，基于上游 v0.17.0（`36b4acf`），选择性移植 v0.20.0 的兼容修复与名册管理。保留上游作者署名；本次移植的 Apache-2.0 代码及原 MIT 贡献声明见 LICENSE、LICENSE-MIT 和 NOTICE。上游历史见 CHANGELOG.md。`main` 跟随上游，个人发行从长期 `dsh/enhanced` 分支运行 [publish-caiqy.yml](.github/workflows/publish-caiqy.yml)，个人 tag 前缀为 `caiqy-subagent-registry-v`。不与上游包同时启用：两者共享 Cordis id、工具和技能。
+个人发行包为 `@caiqy/dsh-subagent-registry@0.17.0-dsh.5`，基于上游 v0.17.0（`36b4acf`），选择性移植 v0.20.0 的兼容修复与名册管理。保留上游作者署名；本次移植的 Apache-2.0 代码及原 MIT 贡献声明见 LICENSE、LICENSE-MIT 和 NOTICE。上游历史见 CHANGELOG.md。`main` 跟随上游，个人发行从长期 `dsh/enhanced` 分支运行 [publish-caiqy.yml](.github/workflows/publish-caiqy.yml)，个人 tag 前缀为 `caiqy-subagent-registry-v`。不与上游包同时启用：两者共享 Cordis id、工具和技能。
 
 发布使用 GitHub-hosted Node 24 / npm 11、npm Trusted Publishing（OIDC）、Environment `npm-publish`。先推送源码，再从父工作区运行 `pnpm release subagent-registry 0.17.0-dsh.1 --check`，去掉 `--check` 才发布同一已验证 tarball 到 npm `dsh` tag（含 provenance）；发布后校验 npm SRI 与实际下载字节。首次 npm 包与 Trusted Publisher 配置需由维护者完成。安装可使用 `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry@dsh`。
 
@@ -152,6 +152,8 @@ npm run test:host # 当前 SDK 的真实服务/持久化/manager/spawn；脚本�
 npm run test:hosts # 同一编译插件分别加载两套实际发布 SDK，并核实版本
 ```
 
+发布包没有安装生命周期脚本，不需要批准本插件的构建脚本。开发仓库安装依赖后，如需使用宿主闭包进行类型检查，显式运行 `npm run link-closure`（可设置 `DSH_CLOSURE_DIR`）。该命令不会在用户安装时自动执行。
+
 从插件目录初始化隔离 SDK（已有环境无需重复安装）：
 
 ```sh
@@ -174,7 +176,7 @@ npm install --prefix ../../.tmp/dsh-type-closure --ignore-scripts @deepseek-ai/d
   闭包。会出事的是硬 dependency 精确钉旧 rc 版——那会把宿主 0.2.x 弄到无法
   boot（已知社区事故模式）。
 - **开发 typecheck（给本仓）**：devDependencies 钉住新版 SDK，`scripts/link-dsh-closure.mjs`
-  （postinstall）把 `node_modules/@deepseek-ai/*` 软链到 `DSH_CLOSURE_DIR` 指定或全局 dsh 安装的闭包，
+  （显式 `npm run link-closure`）把 `node_modules/@deepseek-ai/*` 软链到 `DSH_CLOSURE_DIR` 指定或全局 dsh 安装的闭包，
   保证类型图里只有一份 `@deepseek-ai/cordis`——出现第二份会打断 cordis 的
   `declare module` 类型增强（`Property 'settings' does not exist on type
   'Context'`）。

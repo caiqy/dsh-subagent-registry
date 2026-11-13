@@ -1,13 +1,9 @@
-// Regression for #2: the published tarball must be npm-installable. The
-// postinstall hook references scripts/link-dsh-closure.mjs, so scripts/ has
-// to ship — and the linker's repo guard must stand down inside a consumer
-// tree (the guard markers, tsconfig.json and .git, must therefore never
-// ship). Runs the reporter's exact failing step: `npm install` of the packed
-// tarball, lifecycle scripts included.
+// Release regression: npm and strict pnpm must install without approving builds.
+// The SDK linker remains an explicit development command, not an install hook.
 // Run: node test/packaged-install.test.mjs  (after `npm run build`)
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -31,11 +27,11 @@ try {
   )[0]
   const tarball = join(scratch, packed.filename)
 
-  // 2. Tarball contents: the postinstall target ships; the guard markers do not.
+  // 2. Development utility ships, but its repository-only guard markers do not.
   const contents = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' }).split(/\r?\n/)
   assert.ok(
     contents.includes('package/scripts/link-dsh-closure.mjs'),
-    'postinstall target scripts/link-dsh-closure.mjs is in the tarball (#2)',
+    'explicit development linker is in the tarball',
   )
   assert.ok(!contents.some((f) => f.startsWith('package/tsconfig.json')), 'tsconfig.json never ships (linker guard marker)')
   assert.ok(!contents.some((f) => f.includes('/.git')), '.git never ships (linker guard marker)')
@@ -52,12 +48,26 @@ try {
   const installed = join(consumer, 'node_modules', '@caiqy', 'dsh-subagent-registry')
   assert.ok(existsSync(join(installed, 'scripts', 'link-dsh-closure.mjs')), 'installed package carries the hook target')
   const metadata = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'))
+  // 4. Use the same strict pnpm generation as Desktop, with no build approvals.
+  const pnpmConsumer = join(scratch, 'pnpm-consumer')
+  mkdirSync(pnpmConsumer)
+  writeFileSync(join(pnpmConsumer, 'package.json'), '{"private":true}\n')
+  writeFileSync(join(pnpmConsumer, 'pnpm-workspace.yaml'), 'packages: [.]\nautoInstallPeers: false\nstrictDepBuilds: true\nallowBuilds: {}\n')
+  execFileSync(npm, [...npmArgs, 'exec', '--yes', '--package=pnpm@11.28.5', '--', 'pnpm', 'add', tarball], {
+    cwd: pnpmConsumer,
+    encoding: 'utf8',
+  })
+  const pnpmInstalled = join(pnpmConsumer, 'node_modules', '@caiqy', 'dsh-subagent-registry')
+  assert.equal(JSON.parse(readFileSync(join(pnpmInstalled, 'package.json'), 'utf8')).version, metadata.version)
+  for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) {
+    assert.equal(metadata.scripts?.[hook], undefined, `published package must not have ${hook}`)
+  }
   assert.equal(metadata.name, '@caiqy/dsh-subagent-registry')
   assert.ok(readFileSync(join(installed, 'cordis.patch.yml'), 'utf8').includes(`name: '${metadata.name}'`), 'bundle imports the installed personal package')
   assert.ok(readFileSync(join(installed, 'cordis.patch.yml'), 'utf8').includes('id: dsh-subagent-registry'), 'stable Cordis id is retained')
   assert.ok(readFileSync(join(installed, 'lib', 'client.js'), 'utf8').includes(`id:"${metadata.name}"`), 'client loader registers the installed package name')
 
-  // 4. Consumer safety: the linker must have stood down — no @deepseek-ai
+  // 5. Consumer safety: no @deepseek-ai
   //    scope dir materialized inside the consumer's package tree.
   assert.ok(
     !existsSync(join(installed, 'node_modules', '@deepseek-ai')),
@@ -67,7 +77,7 @@ try {
     !existsSync(join(consumer, 'node_modules', '@deepseek-ai')),
     'optional host SDK peers did not install a consumer-side copy',
   )
-  console.log('packaged-install: tarball installs cleanly, linker stands down, no consumer SDK copy')
+  console.log('packaged-install: npm and strict pnpm install without build approvals or consumer SDK copies')
 } finally {
   rmSync(scratch, { recursive: true, force: true })
 }
