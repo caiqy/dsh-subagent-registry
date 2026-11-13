@@ -25,7 +25,21 @@ import { type SubagentStartRequest } from '@deepseek-ai/dsh-subagent';
 import { type ScopeKey } from '@deepseek-ai/dsh-scope';
 import { type ChildComposition } from './host-compat.ts';
 import { type AgentFile, type ThinkingLevel } from './agents-dir.ts';
+type VolatileRef<T> = {
+    get(): T;
+};
 import { type ResumeMode } from './resume.ts';
+/**
+ * The `disabledAgents` config value in either shape it arrives in: the live
+ * volatile reference the loader hands `apply` (hot-swapped on a settings
+ * write), or a plain array (tests, hand-built configs). Absent = nothing
+ * disabled.
+ */
+export type DisabledAgentsInput = VolatileRef<readonly string[]> | readonly string[] | undefined;
+/** Read the current disabled-agent list out of either input shape. */
+export declare function currentDisabledAgents(input: DisabledAgentsInput): readonly string[];
+/** Whether one agent name is toggled off through the `disabledAgents` key. */
+export declare function isAgentDisabled(name: string, input: DisabledAgentsInput): boolean;
 /** The writable knob surface for this plugin (a subset of the Config schema). */
 export interface RunAgentConfig {
     agentsDir: string;
@@ -51,6 +65,14 @@ export interface RunAgentConfig {
      * in the background dispatch's guidance text. Informational only.
      */
     askToolName?: string;
+    /**
+     * Agent names excluded from the roster (`disabledAgents` config key, the
+     * `/registry-config` command's toggle). A pure configuration filter: a disabled
+     * agent's `<name>.md` stays on disk untouched — it just disappears from the
+     * tool description roster, and an execute-time re-check refuses to run it
+     * even when the model names it directly.
+     */
+    disabledAgents?: DisabledAgentsInput;
 }
 /**
  * Every tool in the stock dsh base distribution that can start agents,
@@ -176,3 +198,4 @@ export declare function stopReasonError(reason: string): string;
 export declare function loadAgent(dir: string, name: string, available: string[]): AgentFile;
 /** The cordis `ctx.tools.register`-ready definition for the `use_agent` tool. */
 export declare function runAgentTool(ctx: Context, cfg: RunAgentConfig): import("@deepseek-ai/dsh-tools").ToolDefinition;
+export {};

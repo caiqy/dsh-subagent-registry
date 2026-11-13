@@ -1,3 +1,4 @@
+// Modified by caiqy: selectively integrated upstream v0.20.0 compatibility and roster controls; no PTC or new presets.
 /**
  * Interactive subagents: continuable (background) dispatch and follow-up
  * messaging for this plugin's custom agents.
@@ -35,6 +36,7 @@ import { SubagentError, finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { listAgentFiles } from './agents-dir.ts'
+import { listDirectChildren } from './host-compat.ts'
 import {
   accountingTurnEnd,
   readStoredEvents,
@@ -42,7 +44,7 @@ import {
   type ChildListEntry,
   type MinimalSessionEvent,
 } from './resume.ts'
-import { loadAgent, stopReasonError, textOf } from './tool-run-agent.ts'
+import { isAgentDisabled, loadAgent, stopReasonError, textOf, type DisabledAgentsInput } from './tool-run-agent.ts'
 
 // ---------------------------------------------------------------------------
 // Dispatch-mode decision (pure)
@@ -68,7 +70,10 @@ export function decideBackgroundMode(
 
 /**
  * Pick the newest listable continuable child whose label matches one of
- * `labels`. `listChildren` orders entries by header `createdAt`, so the LAST
+ * `labels`. The direct-child read (see `listDirectChildren`) yields entries in
+ * parent-catalog event order on every host generation — pre-rc.2 through
+ * `SubagentRuntime.listChildren`, rc.2 through `listDescendants` cut to its
+ * depth-1 rows (the stable pre-order keeps the catalog order) — so the LAST
  * match wins. Both a resident (running) and a cold (inactive) continuable
  * child qualify — delivery steers the former and cold-resumes the latter
  * (0.1.7's durable catalog no longer carries a liveness flag, and none is
@@ -278,6 +283,14 @@ export interface AskAgentConfig {
   dispatchToolName?: string
   /** Poll cadence override (ms) for tests. */
   pollMs?: number
+  /**
+   * The `disabledAgents` roster toggle (same filter the dispatch tool
+   * applies): disabled names vanish from the description's name list, and an
+   * execute-time re-check refuses to address them by name. Addressing by the
+   * raw `agent_id` of an already-dispatched background run stays allowed —
+   * the toggle governs the roster, not live children.
+   */
+  disabledAgents?: DisabledAgentsInput
 }
 
 /**
@@ -288,7 +301,8 @@ export interface AskAgentConfig {
 export function askAgentTool(ctx: Context, cfg: AskAgentConfig) {
   const dispatchTool = cfg.dispatchToolName ?? 'use_agent'
   const { agents, broken } = listAgentFiles(cfg.agentsDir)
-  const nameList = agents.map((agent) => agent.meta.name).join(', ')
+  const visible = agents.filter((agent) => !isAgentDisabled(agent.meta.name, cfg.disabledAgents))
+  const nameList = visible.map((agent) => agent.meta.name).join(', ')
   const brokenNote = broken.length > 0 ? ` (unparsable agents excluded: ${broken.map((b) => b.path).join(', ')})` : ''
 
   const description =
@@ -355,12 +369,20 @@ export function askAgentTool(ctx: Context, cfg: AskAgentConfig) {
       if (hasId) {
         childId = (args.agent_id as string) as unknown as SessionId
       } else {
-        const available = agents.map((agent) => agent.meta.name)
+        const available = visible.map((agent) => agent.meta.name)
         const agent = loadAgent(cfg.agentsDir, args.agent as string, available)
+        // Same live toggle re-check the dispatch tool applies: the
+        // description's name list may lag a hot-swap of disabledAgents.
+        if (isAgentDisabled(args.agent as string, cfg.disabledAgents)) {
+          throw new Error(
+            `${cfg.toolName}: agent "${args.agent}" is disabled by the disabledAgents plugin config ` +
+            `(roster toggle) — enable it via the /registry-config command or the plugin entry config`,
+          )
+        }
         const labels = [...new Set([agent.meta.displayName ?? agent.meta.name, agent.meta.name])]
         let entries: readonly ChildListEntry[]
         try {
-          entries = await ctx.subagents.listChildren(parent.id, exec.signal)
+          entries = await listDirectChildren(ctx, parent.id, exec.signal)
         } catch (error) {
           throw new Error(
             `${cfg.toolName}: cannot enumerate this conversation's subagent children (${String(error)}) — ` +

@@ -336,3 +336,12 @@ bizarre runtime errors like
 `Cannot read properties of undefined (reading 'prepare')` in
 session-persistence. Keep them in `peerDependencies` (and `devDependencies`
 for local typecheck/build), matching `@aiwayds/dsh-tui-pi`'s convention.
+
+
+## Roster controls and selective rc.2 integration
+
+`disabledAgents` is an eighth entry-config key: an array of agent names, default `[]`, hot-reloaded without changing agent files. Disabled agents are omitted from both tool rosters; dispatch and follow-ups by name are rejected. An existing background run can still be addressed by `agent_id`.
+
+Run `/registry-config` on a host with command and question services. Check every agent that should be disabled, including currently disabled names; uncheck to re-enable. Saving refreshes both tool descriptions. Cancellation writes nothing; names missing from the displayed roster retain their existing configuration. Without an interactive question surface, edit `disabledAgents` in the plugin entry config. Example: `disabledAgents: [oldfox]`.
+
+This fork selectively integrates upstream v0.20.0 rc.2 activation, direct-child lookup and resume/join/drain fixes, preserving per-step delegation-tool admission. It excludes the new opt-in templates, Native/Codemode host presets and PTC toolchain. Integration checks and real-host checks are reported separately.

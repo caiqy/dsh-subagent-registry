@@ -2,7 +2,7 @@
 
 [English](./README.en.md)
 
-个人发行包为 `@caiqy/dsh-subagent-registry@0.17.0-dsh.1`，基于上游 v0.17.0（`36b4acf`），保留上游作者 fliu56 与 MIT 许可证。上游历史见 CHANGELOG.md。`main` 跟随上游，个人发行从长期 `dsh/enhanced` 分支运行 [publish-caiqy.yml](.github/workflows/publish-caiqy.yml)，个人 tag 前缀为 `caiqy-subagent-registry-v`。不与上游包同时启用：两者共享 Cordis id、工具和技能。
+个人发行包为 `@caiqy/dsh-subagent-registry@0.17.0-dsh.4`，基于上游 v0.17.0（`36b4acf`），选择性移植 v0.20.0 的兼容修复与名册管理。保留上游作者署名；本次移植的 Apache-2.0 代码及原 MIT 贡献声明见 LICENSE、LICENSE-MIT 和 NOTICE。上游历史见 CHANGELOG.md。`main` 跟随上游，个人发行从长期 `dsh/enhanced` 分支运行 [publish-caiqy.yml](.github/workflows/publish-caiqy.yml)，个人 tag 前缀为 `caiqy-subagent-registry-v`。不与上游包同时启用：两者共享 Cordis id、工具和技能。
 
 发布使用 GitHub-hosted Node 24 / npm 11、npm Trusted Publishing（OIDC）、Environment `npm-publish`。先推送源码，再从父工作区运行 `pnpm release subagent-registry 0.17.0-dsh.1 --check`，去掉 `--check` 才发布同一已验证 tarball 到 npm `dsh` tag（含 provenance）；发布后校验 npm SRI 与实际下载字节。首次 npm 包与 Trusted Publisher 配置需由维护者完成。安装可使用 `dsh plugin --profile <profile> add @caiqy/dsh-subagent-registry@dsh`。
 
@@ -95,7 +95,7 @@ Frontmatter 字段：`name`（必填）、`description`、`display_name`、`mode
 → **完整参考**：[docs/AGENT-FORMAT.md](./docs/AGENT-FORMAT.md)（英文）——每个字段
 的校验与失败行为、`deep`/`thinking` 语义、续跑机制、后台派发、配置项、已知边界。
 
-## 插件配置（entry config 七键）
+## 插件配置（entry config 八键）
 
 配置挂在加载本插件的 patch 挂载块上（cordis.patch.yml 的 `config:` 段）：
 
@@ -192,4 +192,13 @@ devDependencies，也不要去掉 `optional: true`（非 optional peer 在
 
 ## License
 
-MIT
+Apache-2.0; original MIT contributions are retained in LICENSE-MIT and NOTICE.
+
+
+## 代理启停与 rc.2 选择性适配
+
+新增第八个 entry config 键 `disabledAgents`：要停用的 agent 名字数组，默认 `[]`，支持热更新，不修改 agent 文件。停用后从派发和追问工具名册中隐藏，并拒绝按名字派发或追问；已有后台 run 仍可通过 `agent_id` 联系。示例：`disabledAgents: [oldfox]`。
+
+在提供命令及问答服务的宿主中运行 `/registry-config`，勾选所有要停用的代理（已有停用项需继续勾选），取消勾选恢复启用。保存后刷新两个工具的名册。取消不写配置；未出现在名册中的缺失或损坏文件保留原停用状态。无问答面板时，按提示在插件 entry config 手工修改 `disabledAgents`。
+
+本分支选择性移植上游 v0.20.0 的 rc.2 启动、直接子代理查找，以及续跑、等待和清理修复；保留现有每步工具准入增强。排除新增可选模板、Native/Codemode 宿主预设及 PTC 工具链。单元检查与真实宿主检查分别记录。

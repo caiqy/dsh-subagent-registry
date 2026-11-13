@@ -2,5 +2,24 @@
   "meta": {
     "title": "dsh-subagent-registry",
     "description": "Registers ~/.dsh/agents/*.md as callable subagents (use_agent) with continuable background dispatch and ask_agent follow-ups."
+  },
+  "subagents": {
+    "commandDescription": "Manage subagents: enable or disable roster agents.",
+    "askUnavailable": "No ask surface is available (the userQuestions service is not mounted). Edit the dsh-subagent-registry entry config manually (profile cordis.patch.yml or the settings page).",
+    "askFailed": "The wizard could not complete ({error}). Configure manually, see below.",
+    "qDisableHeader": "Disable agents",
+    "qDisableQuestion": "Check the agents to disable (unchecked = enabled).",
+    "qDisableDetail": "Disabling only hides an agent from the use_agent roster and refuses calls by name; the agent file is never modified. Currently disabled names must STAY checked to remain disabled.",
+    "markDisabled": "currently disabled — keep checked to stay disabled, uncheck to re-enable",
+    "markEnabled": "currently enabled — check to disable",
+    "noChanges": "Nothing changed.",
+    "savedHeader": "Subagent settings saved.",
+    "disabledLine": "Disabled: {names}",
+    "enabledLine": "Enabled: {names}",
+    "rosterRefreshed": "Tool roster refreshed.",
+    "rosterRefreshFailed": "Roster refresh failed: {error} — it applies when the management page is reopened or on the next dispatch.",
+    "persistFailed": "Config write failed: {error}",
+    "settingsUnavailable": "Settings service unavailable; no config was written.",
+    "manualHint": "Set disabledAgents (an array of disabled agent names) in the dsh-subagent-registry entry config (profile cordis.patch.yml or settings page). Agent files are never changed."
   }
 }

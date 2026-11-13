@@ -1,7 +1,16 @@
 // Public lifecycle correlation, cancellation, parked descendants and exact cleanup.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
-import { createLegacyDescendantJoin, drainRunDescendants } from '../lib/host-compat.js'
+import {
+  createLegacyDescendantJoin,
+  drainRunDescendants,
+  listDirectChildren,
+  nativeChildWorkJoinRoot,
+  rc2ChildSurface,
+  waitForChildWork,
+} from '../lib/host-compat.js'
 
 const timeout = setTimeout(() => { throw new Error('host-compat check did not settle within 5 seconds') }, 5000)
 const tick = () => new Promise(setImmediate)
@@ -107,4 +116,146 @@ try {
   console.log('host-compat: PASS — scoped epochs, parked descendants, diagnostics, abort wake, exact drain, listener release')
 } finally {
   clearTimeout(timeout)
+}
+
+// ---------------------------------------------------------------------------
+// The 0.2.2-rc.2 child surface (generation probe + the two read/join adapters)
+// ---------------------------------------------------------------------------
+
+{
+  const probeCtx = (subagents) => ({ subagents })
+
+  assert.equal(rc2ChildSurface(probeCtx({ waitForChildren: async () => false })), false, 'pre-rc.2 runtime (waitForChildren only) does not speak the rc.2 surface')
+  assert.equal(rc2ChildSurface(probeCtx({ waitForTreeWork: async () => false })), true, 'waitForTreeWork presence marks the rc.2 surface')
+
+  // nativeChildWorkJoinRoot — the agent the native join must be called with.
+  // pre-rc.2: waitForChildren joins by lineage below any parent — the parent
+  // itself. rc.2: the exact live tree root resolved through the runtime's
+  // rootOf; a rootOf that throws (the cold-resumed drive child has no active
+  // runtime owner) yields undefined — the legacy event join stands in.
+  assert.equal(nativeChildWorkJoinRoot(probeCtx({ waitForChildren: async () => false }), root), root, 'pre-rc.2 line joins below the parent itself (lineage filter, no root guard)')
+  assert.equal(nativeChildWorkJoinRoot(probeCtx({ waitForTreeWork: async () => false, rootOf: (agent) => agent }), root), root, 'rc.2 self-rooted agent joins through waitForTreeWork on itself')
+  const treeRoot = { id: 'tree-root' }
+  assert.equal(nativeChildWorkJoinRoot(probeCtx({ waitForTreeWork: async () => false, rootOf: () => treeRoot }), root), treeRoot, 'rc.2 resident member resolves its tree root')
+  assert.equal(nativeChildWorkJoinRoot(probeCtx({ waitForTreeWork: async () => false, rootOf: () => { throw new Error('agent has no active runtime owner') } }), root), undefined, 'rc.2 agent without a runtime owner (cold-resumed child) has no native join')
+  assert.equal(nativeChildWorkJoinRoot(probeCtx({}), root), undefined, '0.2.0 line has neither join — legacy fallback rides')
+
+  // listDirectChildren — pre-rc.2: passthrough of SubagentRuntime.listChildren.
+  {
+    const rows = [{ id: 'a', createdAt: 1, mode: 'one-shot', label: 'x' }, { id: 'b', createdAt: 2, mode: 'continuable', label: 'y' }]
+    let calledWith
+    const ctx = probeCtx({
+      listChildren: async (parentId, signal) => { calledWith = { parentId, signal }; return rows },
+    })
+    const signal = new AbortController().signal
+    const out = await listDirectChildren(ctx, 'parent-1', signal)
+    assert.deepEqual(out, rows, 'pre-rc.2 read passes the catalog rows through in order')
+    assert.deepEqual(calledWith, { parentId: 'parent-1', signal }, 'pre-rc.2 read forwards parent id and signal')
+    console.log('PASS listDirectChildren pre-rc.2 (listChildren passthrough)')
+  }
+
+  // listDirectChildren — rc.2: listDescendants cut to the depth-1 children,
+  // diagnostics and grandchildren dropped, catalog pre-order kept.
+  {
+    const descendants = [
+      { kind: 'child', id: 'c1', mode: 'one-shot', label: 'x', parentId: 'parent-1', depth: 1, hasChildren: true },
+      { kind: 'child', id: 'g1', mode: 'one-shot', label: 'grandchild', parentId: 'c1', depth: 2 },
+      { kind: 'diagnostic', id: 'd1', parentId: 'parent-1', depth: 1, reason: 'corrupt' },
+      { kind: 'child', id: 'c2', mode: 'continuable', label: 'y', parentId: 'parent-1', depth: 1, hasChildren: false },
+    ]
+    const ctx = probeCtx({ waitForTreeWork: async () => false, listDescendants: async () => descendants })
+    const out = await listDirectChildren(ctx, 'parent-1')
+    assert.deepEqual(out, [
+      { kind: 'child', id: 'c1', mode: 'one-shot', label: 'x', parentId: 'parent-1', depth: 1, hasChildren: true },
+      { kind: 'child', id: 'c2', mode: 'continuable', label: 'y', parentId: 'parent-1', depth: 1, hasChildren: false },
+    ], 'rc.2 read keeps only depth-1 children in pre-order')
+    console.log('PASS listDirectChildren rc.2 (listDescendants depth-1 cut, order kept)')
+  }
+
+  // listDirectChildren — a host with neither read fails loud (no silent empty).
+  {
+    const ctx = probeCtx({ listDescendants: async () => [] })
+    await assert.rejects(listDirectChildren(ctx, 'parent-1'), /no child catalog read/, 'missing reads on both shapes fail loud')
+    console.log('PASS listDirectChildren loud failure when no read exists')
+  }
+
+  // waitForChildWork — rc.2 joins waitForTreeWork on the resolved tree root
+  // (never the member itself: the runtime's `rootOf(root) !== root` guard
+  // would silently resolve false, and a non-resident agent throws);
+  // pre-rc.2 rides waitForChildren; neither resolves false (caller falls
+  // back to the legacy join).
+  {
+    const calls = []
+    const rc2Ctx = probeCtx({ waitForTreeWork: async (joined) => { calls.push(joined); return true }, rootOf: (agent) => agent })
+    assert.equal(await waitForChildWork(rc2Ctx, root), true, 'rc.2 join rides waitForTreeWork on the rootOf-resolved root')
+    assert.deepEqual(calls, [root], 'self-rooted agent: waitForTreeWork receives the agent itself')
+    const memberCtx = probeCtx({ waitForTreeWork: async (joined) => { calls.push(joined); return false }, rootOf: () => treeRoot })
+    assert.equal(await waitForChildWork(memberCtx, root, treeRoot), false, 'explicit root is honored verbatim')
+    assert.deepEqual(calls, [root, treeRoot], 'a resident member joins its tree root, not itself')
+    const coldCtx = probeCtx({ waitForTreeWork: async () => { calls.push('cold'); return true }, rootOf: () => { throw new Error('agent has no active runtime owner') } })
+    assert.equal(await waitForChildWork(coldCtx, root), false, 'a cold-resumed child (rootOf throws) resolves false — no native tree to join')
+    const legacyCtx = probeCtx({ waitForChildren: async () => { calls.push('children'); return false } })
+    assert.equal(await waitForChildWork(legacyCtx, root), false, 'pre-rc.2 join rides waitForChildren')
+    assert.equal(calls.at(-1), 'children', 'exactly one native join runs per call')
+    assert.equal(await waitForChildWork(probeCtx({}), root), false, 'no native join resolves false for the legacy fallback')
+    console.log('PASS waitForChildWork generation pick (rooted treeWork > children > false)')
+  }
+
+  // drainRunDescendants — rc.2 drains exact live tree roots. The manager's
+  // rootOf throws UNAUTHORIZED for an agent with no active runtime owner
+  // (the cold-resumed drive child), and a resident member owns no tree —
+  // both must skip the manager drain instead of throwing / no-op-ing.
+  {
+    let drainedWith
+    const drain = (roots) => { drainedWith = roots }
+    await drainRunDescendants(probeCtx({ waitForTreeWork: async () => false, rootOf: (agent) => agent, drainDescendants: drain }), root)
+    assert.deepEqual(drainedWith, [root], 'rc.2 self-rooted agent drains its tree through the manager')
+    drainedWith = undefined
+    await drainRunDescendants(probeCtx({ waitForTreeWork: async () => false, rootOf: () => treeRoot, drainDescendants: drain }), root)
+    assert.equal(drainedWith, undefined, 'rc.2 resident member owns no tree — drain skipped')
+    drainedWith = undefined
+    await drainRunDescendants(probeCtx({ waitForTreeWork: async () => false, rootOf: () => { throw new Error('agent has no active runtime owner') }, drainDescendants: drain }), root)
+    assert.equal(drainedWith, undefined, 'rc.2 cold-resumed child (rootOf throws) skips the manager drain instead of rejecting')
+    console.log('PASS drainRunDescendants rc.2 root guard (self root drains, member and cold child skip)')
+  }
+}
+
+// Exercise the actual compiled dispatch helper on both API shapes, including
+// foreground/background delivery and failure cleanup. No extra public export.
+{
+  const source = readFileSync(new URL('../lib/tool-run-agent.js', import.meta.url), 'utf8')
+  const start = source.indexOf('async function activateWithReservedComposition(')
+  const end = source.indexOf('\n}', start) + 2
+  assert.ok(start >= 0 && end > start)
+  let released = 0
+  const dispatch = runInNewContext(`(${source.slice(start, end)})`, {
+    randomUUID: () => 'child-1', reserveChildComposition() {},
+    releaseChildComposition() { released++ }, rc2ChildSurface,
+  })
+  const parent = { id: 'parent-1' }
+  const request = { parent, persona: 'persona', prompt: [{ type: 'text', text: 'task' }] }
+  const signal = new AbortController().signal
+  for (const rc2 of [false, true]) {
+    for (const delivery of ['parent', 'caller']) {
+      let calls = 0
+      const ctx = { subagents: {
+        ...(rc2 ? { waitForTreeWork() {} } : {}),
+        async startActivation(spec) {
+          calls++
+          assert.equal((rc2 ? spec : spec.request).parent, parent)
+          assert.equal(spec.delivery, delivery)
+          assert.equal(spec.signal, signal)
+          assert.equal(spec.childId, 'child-1')
+          return { childId: spec.childId }
+        },
+      } }
+      assert.equal((await dispatch(ctx, 'spawn', 'worker', request, signal, delivery, parent)).childId, 'child-1')
+      assert.equal(calls, 1, 'one dispatch per invocation')
+      ctx.subagents.startActivation = async () => { calls++; throw new Error('admission failed') }
+      await assert.rejects(dispatch(ctx, 'spawn', 'worker', request, signal, delivery, parent), /admission failed/)
+      assert.equal(calls, 2, 'failed admission does not retry another interface')
+    }
+  }
+  assert.equal(released, 4, 'each failed admission releases reserved composition')
+  console.log('PASS activation request shape on old and rc.2 hosts, both deliveries, no duplicate dispatch')
 }

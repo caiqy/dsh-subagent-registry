@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.17.0-dsh.4] - 2026-11-13
+
+### Fixed
+- Selectively port upstream v0.20.0 compatibility for DSH 0.2.2-rc.2: flattened activation requests, direct-child lookup, parent-context resume, tree-root joins and cold-resume cleanup. Preserve the fork's per-step tool-admission guidance.
+- Refresh both dispatch and follow-up tool rosters; restore both registrations if a refresh fails partway through.
+
+### Added
+- Hot-reloadable `disabledAgents` and a roster-only `/registry-config` wizard in Chinese, English and Russian. Agent files and existing background runs remain intact; declined or invalid answers do not write configuration.
+- Regression coverage for both activation request shapes, rc.2 resume semantics, roster toggles and wizard failure handling.
+
+### Scope
+- Exclude upstream's new opt-in agent templates, Native/Codemode host presets and PTC/JEV toolchain. No runtime dependencies added.
+- Include upstream Apache-2.0 license and notices while retaining original MIT contribution terms.
+
 ## [0.17.0] - 2026-11-01
 
 ### Added

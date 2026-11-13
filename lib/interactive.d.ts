@@ -30,6 +30,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type { SessionId } from '@deepseek-ai/dsh-session';
 import { type ChildListEntry, type MinimalSessionEvent } from './resume.ts';
+import { type DisabledAgentsInput } from './tool-run-agent.ts';
 /**
  * Resolve the dispatch mode for one `use_agent` call: an explicit tool
  * parameter wins, the agent file's `background` frontmatter is the default,
@@ -38,7 +39,10 @@ import { type ChildListEntry, type MinimalSessionEvent } from './resume.ts';
 export declare function decideBackgroundMode(explicit: boolean | undefined, frontmatter: boolean | undefined): boolean;
 /**
  * Pick the newest listable continuable child whose label matches one of
- * `labels`. `listChildren` orders entries by header `createdAt`, so the LAST
+ * `labels`. The direct-child read (see `listDirectChildren`) yields entries in
+ * parent-catalog event order on every host generation — pre-rc.2 through
+ * `SubagentRuntime.listChildren`, rc.2 through `listDescendants` cut to its
+ * depth-1 rows (the stable pre-order keeps the catalog order) — so the LAST
  * match wins. Both a resident (running) and a cold (inactive) continuable
  * child qualify — delivery steers the former and cold-resumes the latter
  * (0.1.7's durable catalog no longer carries a liveness flag, and none is
@@ -108,6 +112,14 @@ export interface AskAgentConfig {
     dispatchToolName?: string;
     /** Poll cadence override (ms) for tests. */
     pollMs?: number;
+    /**
+     * The `disabledAgents` roster toggle (same filter the dispatch tool
+     * applies): disabled names vanish from the description's name list, and an
+     * execute-time re-check refuses to address them by name. Addressing by the
+     * raw `agent_id` of an already-dispatched background run stays allowed —
+     * the toggle governs the roster, not live children.
+     */
+    disabledAgents?: DisabledAgentsInput;
 }
 /**
  * The cordis `ctx.tools.register`-ready definition for the `ask_agent` tool.

@@ -2,5 +2,24 @@
   "meta": {
     "title": "dsh-subagent-registry",
     "description": "将 ~/.dsh/agents/*.md 注册为可调用子代理（use_agent），支持可续跑的后台派发与 ask_agent 追问。"
+  },
+  "subagents": {
+    "commandDescription": "管理子代理：启用或停用名册中的 agent。",
+    "askUnavailable": "当前没有可用的问答面板（userQuestions 服务未挂载）。请手工修改 dsh-subagent-registry 的 entry config（profile cordis.patch.yml 或设置页）。",
+    "askFailed": "向导未能完成（{error}）。可手工修改配置，见下。",
+    "qDisableHeader": "停用 agent",
+    "qDisableQuestion": "勾选要停用的 agent（取消勾选 = 保持启用）。",
+    "qDisableDetail": "停用只是把它从 use_agent 名册隐藏并拒绝按名调用，agent 文件不会被改动。当前已停用的名字必须保持勾选才会继续停用。",
+    "markDisabled": "已停用——保持勾选维持停用，取消勾选恢复启用",
+    "markEnabled": "已启用——勾选即停用",
+    "noChanges": "未做任何修改。",
+    "savedHeader": "子代理配置已保存。",
+    "disabledLine": "已停用：{names}",
+    "enabledLine": "已启用：{names}",
+    "rosterRefreshed": "工具名册已刷新。",
+    "rosterRefreshFailed": "名册刷新失败：{error}——重新打开管理页或下次派发时生效。",
+    "persistFailed": "配置写入失败：{error}",
+    "settingsUnavailable": "设置服务不可用，配置未写入。",
+    "manualHint": "手工配置：在 dsh-subagent-registry 的 entry config（profile cordis.patch.yml 或设置页）中设置 disabledAgents，值为要停用的 agent 名字数组。不会修改 agent 文件。"
   }
 }

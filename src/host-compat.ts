@@ -1,3 +1,4 @@
+// Modified by caiqy: selectively integrated upstream v0.20.0 compatibility and roster controls; no PTC or new presets.
 /** Public host seams used only when managed activations are absent — plus the out-of-band child composition for activation hosts. */
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -32,9 +33,128 @@ export interface LegacySubagents {
   }): Promise<{ childId: SessionId }>
   listDescendants(id: SessionId, signal?: AbortSignal): Promise<readonly LegacyDescendant[]>
   drainContinuableDescendants(parents: readonly Agent[]): Promise<void>
+  /** The pre-rc.2 child catalog read (removed from the rc.2 runtime). */
+  listChildren?(parentSessionId: SessionId, signal?: AbortSignal): Promise<readonly DirectChildEntry[]>
+  /** The pre-rc.2 descendant join (replaced by waitForTreeWork on rc.2). */
+  waitForChildren?(parent: Agent): Promise<boolean>
 }
 
 export const legacySubagents = (ctx: Context): LegacySubagents => ctx.subagents as unknown as LegacySubagents
+
+// ---------------------------------------------------------------------------
+// The 0.2.2-rc.2 child surface
+// ---------------------------------------------------------------------------
+//
+// The 0.2.2-rc.2 wave reshaped four child seams at once; every reshape keeps a
+// cross-generation reading here:
+//   1. `SubagentRuntime.waitForChildren(parent)` became
+//      `waitForTreeWork(root)` — same join contract under tree-rooted naming
+//      (the rc.2 headless driver runs the identical idle/seq loop against it).
+//   2. `SubagentRuntime.listChildren(parentId)` is gone. The direct-child read
+//      becomes `listDescendants(parentId)` cut to the `depth === 1` rows: the
+//      stable pre-order keeps the parent catalog's event order at depth 1, so
+//      the pickers' "last match wins" semantics survive unchanged.
+//   3. `ResumeAgentOptions.parentAgent` was removed — agent ownership now
+//      follows the calling context (the rc.2 resume path destructures only
+//      `{ resumeSessionId, agentOptions, signal, setup }` and hangs the agent
+//      off the context the call went through). A carried `parentAgent` key is
+//      inert there while pre-rc.2 lines REQUIRE it, so one call form through
+//      `parent.ctx` with the key covers every generation.
+//   4. `SubagentActivationSpec` flattened: the nested `request` object now
+//      rides the spec itself (the spec extends
+//      `Omit<SubagentStartRequest, 'label' | 'signal'>`).
+//
+// `waitForTreeWork` is the runtime probe for the whole wave: it first exists
+// in 0.2.2-rc.2 (rc.1 still carried waitForChildren/listChildren and the
+// nested spec), and the four reshapes shipped together in that release.
+
+/** Whether the host's subagents service speaks the 0.2.2-rc.2 child surface. */
+export function rc2ChildSurface(ctx: Context): boolean {
+  return typeof (ctx.subagents as unknown as { waitForTreeWork?: unknown }).waitForTreeWork === 'function'
+}
+
+/** Structural minimum of a direct-child catalog row the pickers read. */
+export interface DirectChildEntry {
+  readonly id: unknown
+  readonly mode?: 'one-shot' | 'continuable' | 'external' | 'unknown'
+  readonly label?: string
+}
+
+/**
+ * Read the parent's durable direct-child catalog in catalog event order.
+ * Pre-rc.2 hosts answer through `SubagentRuntime.listChildren`; rc.2 hosts
+ * through `listDescendants(parentId)` cut to the depth-1 rows (every row
+ * carries its `depth`; the pre-order keeps the parent catalog's order).
+ */
+export async function listDirectChildren(ctx: Context, parentId: SessionId, signal?: AbortSignal): Promise<DirectChildEntry[]> {
+  if (!rc2ChildSurface(ctx)) {
+    const legacy = legacySubagents(ctx)
+    if (typeof legacy.listChildren !== 'function') throw new Error('the subagents service exposes no child catalog read')
+    return [...(await legacy.listChildren(parentId, signal))]
+  }
+  const rows = await ctx.subagents.listDescendants(parentId, signal)
+  return rows.filter((row): row is typeof row & { kind: 'child'; depth: 1 } => row.kind === 'child' && row.depth === 1)
+}
+
+/**
+ * Resolve the agent the native descendant join must be called with for
+ * `parent` on this host, or `undefined` when no native join can serve it
+ * (the caller rides {@link createLegacyDescendantJoin}).
+ *
+ * pre-rc.2 hosts join through `waitForChildren(parent)`, which filters by
+ * lineage below any parent — the parent itself is the join target. rc.2 hosts
+ * join through `waitForTreeWork(root)`, which takes the exact live subagent
+ * tree root: the runtime's first line is `if (this.rootOf(root) !== root)
+ * return false`, and `rootOf` throws `UNAUTHORIZED` ("agent has no active
+ * runtime owner") for a subagent-origin session outside manager residency.
+ * The cold-resume drive child is exactly such an agent — it materializes
+ * through the agents service, bypassing the manager — so calling
+ * `waitForTreeWork` with it would either throw or silently resolve `false`
+ * for a member, dropping the descendant join. Its root must therefore be
+ * resolved through the runtime's own `rootOf`; when that throws, no
+ * manager-owned tree exists beneath the child at all.
+ */
+export function nativeChildWorkJoinRoot(ctx: Context, parent: Agent): Agent | undefined {
+  const runtime = ctx.subagents as unknown as {
+    waitForTreeWork?: unknown
+    waitForChildren?: unknown
+    rootOf?: (agent: Agent) => Agent
+  }
+  if (typeof runtime.waitForTreeWork !== 'function') {
+    // pre-rc.2: `waitForChildren` joins by lineage below any parent.
+    return typeof runtime.waitForChildren === 'function' ? parent : undefined
+  }
+  if (typeof runtime.rootOf !== 'function') return undefined
+  try {
+    return runtime.rootOf(parent)
+  } catch {
+    // No active runtime owner (or the agent is not exact-live): no manager-
+    // owned tree to join — the legacy event-driven join stands in.
+    return undefined
+  }
+}
+
+/**
+ * Join progressing descendant work below `parent` without cancelling it.
+ * `root` is the native join target from {@link nativeChildWorkJoinRoot}:
+ * rc.2 hosts join through `waitForTreeWork(root)` — the exact live tree root,
+ * never the member itself (a member resolves `false` there and a non-resident
+ * agent makes the runtime throw); pre-rc.2 lines through `waitForChildren`.
+ * Resolves `false` when the host exposes no usable native join (the caller
+ * falls back to {@link createLegacyDescendantJoin}).
+ */
+export async function waitForChildWork(ctx: Context, parent: Agent, root?: Agent): Promise<boolean> {
+  const runtime = ctx.subagents as unknown as {
+    waitForTreeWork?: (root: Agent) => Promise<boolean>
+    waitForChildren?: (parent: Agent) => Promise<boolean>
+  }
+  if (typeof runtime.waitForTreeWork === 'function') {
+    const joinRoot = root ?? nativeChildWorkJoinRoot(ctx, parent)
+    return joinRoot === undefined ? false : runtime.waitForTreeWork(joinRoot)
+  }
+  if (typeof runtime.waitForChildren === 'function') return runtime.waitForChildren(parent)
+  return false
+}
 
 // ---------------------------------------------------------------------------
 // Out-of-band child composition (activation hosts)
@@ -129,9 +249,25 @@ export function installChildCompositionListener(ctx: Context): () => void {
 
 /** Drain exactly this forest, preserving the service receiver on both hosts. */
 export function drainRunDescendants(ctx: Context, root: Agent): Promise<void> {
-  return typeof ctx.subagents.drainDescendants === 'function'
-    ? ctx.subagents.drainDescendants([root])
-    : legacySubagents(ctx).drainContinuableDescendants([root])
+  const runtime = ctx.subagents as unknown as {
+    drainDescendants?: (parents: readonly Agent[]) => Promise<void>
+    waitForTreeWork?: unknown
+    rootOf?: (agent: Agent) => Agent
+  }
+  if (typeof runtime.drainDescendants !== 'function') return legacySubagents(ctx).drainContinuableDescendants([root])
+  if (typeof runtime.waitForTreeWork === 'function' && typeof runtime.rootOf === 'function') {
+    // rc.2 drains exact live subagent tree roots: a resident member is
+    // ignored there, but the manager's `rootOf` throws UNAUTHORIZED for an
+    // agent with no active runtime owner — the cold-resume drive child,
+    // which materializes outside manager residency. Nothing manager-owned
+    // can exist beneath such an agent, so there is nothing to drain.
+    try {
+      if (runtime.rootOf(root) !== root) return Promise.resolve()
+    } catch {
+      return Promise.resolve()
+    }
+  }
+  return runtime.drainDescendants([root])
 }
 
 /** Install before driving the root; lifecycle edges also cover uncataloged external runs. */

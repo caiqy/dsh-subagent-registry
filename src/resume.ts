@@ -1,13 +1,14 @@
+// Modified by caiqy: selectively integrated upstream v0.20.0 compatibility and roster controls; no PTC or new presets.
 /** Foreground recall, with managed fresh dispatch and a scoped cold-resume driver. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { foldConsumedWork } from '@deepseek-ai/dsh-agent'
-import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions, ResumeAgentOptions } from '@deepseek-ai/dsh-agent'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
-import { createLegacyDescendantJoin, drainRunDescendants } from './host-compat.ts'
+import { createLegacyDescendantJoin, drainRunDescendants, listDirectChildren, nativeChildWorkJoinRoot, waitForChildWork, type DirectChildEntry } from './host-compat.ts'
 import {
   applyChildComposition,
   finalAssistantOutput,
@@ -144,21 +145,18 @@ export function classifyPriorRun(events: readonly MinimalSessionEvent[]): PriorR
 // ---------------------------------------------------------------------------
 
 /**
- * Structural minimum of a `listChildren` entry the pickers read. 0.1.7
- * reshaped the read: `listChildren` returns `SubagentCatalogEntry[]` — the
- * durable direct-child catalog rows `{ id, createdAt, mode, label? }` — so
- * the old `SubagentListEntry` fields are gone: every row IS a child (no
- * `kind` discriminator), and liveness is no longer carried (`activity` was
- * dropped; the catalog holds durable parent facts only, and `mode: 'unknown'`
- * marks a row whose descriptor could not be folded). Liveness for the
- * one-shot picker is instead resolved against the live agent registry — see
- * {@link findResumableRun}.
+ * Structural minimum of a direct-child catalog row the pickers read. 0.1.7
+ * reshaped the read (`SubagentCatalogEntry[]` — the durable direct-child
+ * catalog rows `{ id, createdAt, mode, label? }`: every row IS a child, no
+ * liveness — the catalog holds durable parent facts only, and
+ * `mode: 'unknown'` marks a row whose descriptor could not be folded).
+ * 0.2.2-rc.2 removed `SubagentRuntime.listChildren`; the read now routes
+ * through {@link listDirectChildren} (pre-rc.2 keeps `listChildren`, rc.2
+ * cuts `listDescendants` to its depth-1 rows — same rows, same order).
+ * Liveness for the one-shot picker is resolved against the live agent
+ * registry — see {@link findResumableRun}.
  */
-export interface ChildListEntry {
-  readonly id: unknown
-  readonly mode?: 'one-shot' | 'continuable' | 'external' | 'unknown'
-  readonly label?: string
-}
+export type ChildListEntry = DirectChildEntry
 
 /**
  * Durable namespace separates managed foreground children from background
@@ -322,7 +320,7 @@ export async function findResumableRun(
   signal?: AbortSignal,
 ): Promise<ResumableRun | undefined> {
   signal?.throwIfAborted()
-  const entries = await ctx.subagents.listChildren(parent.id, signal)
+  const entries = await listDirectChildren(ctx, parent.id, signal)
   const candidate = pickLatestLabeledChild(entries, label)
   if (candidate === undefined) return undefined
   // Read the live agent registry without a hard dependency (a bare context —
@@ -398,7 +396,14 @@ async function driveLegacyResume(input: ResumeDriveInput): Promise<ResumedRunRes
   const { ctx, parent, childId, signal } = input
   signal.throwIfAborted()
   const childDepth = resolveChildDepth(parent, undefined)
-  const handle = await ctx.agents.resume({
+  // 0.2.2-rc.2 removed `ResumeAgentOptions.parentAgent`: ownership now follows
+  // the calling context, so the resume goes through the parent's own context
+  // (falling back to the plugin context when the structural double carries
+  // none). The explicit key stays in the object — inert (ignored) on rc.2,
+  // REQUIRED on pre-rc.2 lines whose resume still reads it for ownership — so
+  // one call form covers every generation the peer floors promise.
+  const resumeCtx = parent.ctx ?? ctx
+  const resumeOptions: ResumeAgentOptions & { parentAgent?: Agent } = {
     resumeSessionId: childId,
     parentAgent: parent,
     agentOptions: resolveChildAgentOptions(parent, input.agentOptions, childDepth),
@@ -414,7 +419,8 @@ async function driveLegacyResume(input: ResumeDriveInput): Promise<ResumedRunRes
         if (ctx.agents.get(parent.id) !== parent) throw new Error('resume requires the exact live parent')
       } }
     },
-  })
+  }
+  const handle = await resumeCtx.agents.resume(resumeOptions)
   const child = handle.agent
   let join: ReturnType<typeof createLegacyDescendantJoin> | undefined
   let drain: Promise<void> | undefined
@@ -444,7 +450,16 @@ async function driveLegacyResume(input: ResumeDriveInput): Promise<ResumedRunRes
     // the live child before disposal and fail identically in bare contexts
     // without persistence.
     const boundary = child.session.seq
-    if (typeof ctx.subagents.waitForChildren !== 'function') join = createLegacyDescendantJoin(ctx, signal)
+    // Native descendant join: `waitForTreeWork(root)` (rc.2) or
+    // `waitForChildren` (pre-rc.2). Neither exists on the 0.2.0 line — the
+    // legacy event-driven join stands in there. The rc.2 join takes the
+    // exact live tree root, resolved per child: this cold-resumed child
+    // materializes outside manager residency, so the runtime's `rootOf`
+    // throws for it (no active runtime owner) — no manager-owned tree can
+    // exist beneath it and the legacy join (durable-catalog based, present
+    // on every generation) keeps descendant events in the fold below.
+    const nativeRoot = nativeChildWorkJoinRoot(ctx, child)
+    if (nativeRoot === undefined) join = createLegacyDescendantJoin(ctx, signal)
     if (!flags.cancelled) {
       child.followup(createUserMessage({
         content: [{ type: 'text', text: input.continuationPrompt }],
@@ -465,7 +480,7 @@ async function driveLegacyResume(input: ResumeDriveInput): Promise<ResumedRunRes
         while (true) {
           await child.whenIdle()
           const seq = child.session.seq
-          await ctx.subagents.waitForChildren(child)
+          await waitForChildWork(ctx, child, nativeRoot)
           if (child.status === 'idle' && child.session.seq === seq) break
         }
       }

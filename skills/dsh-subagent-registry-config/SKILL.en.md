@@ -1,6 +1,6 @@
 ---
 name: dsh-subagent-registry-config
-description: "Guide to the dsh subagent registry plugin. Covers custom subagents, use_agent/ask_agent, the agents dir, agent .md authoring, resume semantics, plugin config: ~/.dsh/agents/*.md frontmatter keys (name/deep/display_name/description/model/thinking/background/maxRounds), entry config keys agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language, ask_user_question wizard, usage diagnostics. Triggers: subagent, agent, use_agent, ask_agent, resume, debug, not called, language, язык."
+description: "Guide to the dsh subagent registry plugin. Covers custom subagents, use_agent/ask_agent, the agents dir, agent .md authoring, resume semantics, plugin config: ~/.dsh/agents/*.md frontmatter keys, entry config keys agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language/disabledAgents, ask_user_question wizard, usage diagnostics. Triggers: subagent, agent, use_agent, ask_agent, resume, debug, not called, language, язык."
 ---
 
 # dsh-subagent-registry guide (custom subagents / use_agent)
@@ -166,3 +166,12 @@ Note: dump-config shows the patch layer's **composition result**, not the runtim
 1. **An agent file is dropped** → look for parse errors in the startup/loader logs: a missing `name`, a non-integer or negative `deep`, or an invalid `thinking`/`background` value all **drop the whole file** (no downgraded repair).
 2. **An agent doesn't appear in the `use_agent` tool** → check in order: is agentsDir configured correctly (default `$DSH_HOME/agents`); is the file `<name>.md` placed directly at the top level of the dir (subdirectories are not recursed); is the frontmatter valid and does name match the file name (see the previous item). Opening or refreshing the web management page syncs the roster; on pure CLI/TUI the roster updates at the next mount, and new files are callable by name immediately.
 3. **Preset agents lost/modified** → first startup seeds the three preset agents workhorse / oldfox / rubber-duck only when the dir is empty; existing files are never overwritten, and a deletion is a deletion. Uninstalling the plugin also never touches the files in `~/.dsh/agents/`.
+
+
+## Roster controls and selective rc.2 integration
+
+`disabledAgents` is an eighth entry-config key: an array of agent names, default `[]`, hot-reloaded without changing agent files. Disabled agents are omitted from both tool rosters; dispatch and follow-ups by name are rejected. An existing background run can still be addressed by `agent_id`.
+
+Run `/registry-config` on a host with command and question services. Check every agent that should be disabled, including currently disabled names; uncheck to re-enable. Saving refreshes both tool descriptions. Cancellation writes nothing; names missing from the displayed roster retain their existing configuration. Without an interactive question surface, edit `disabledAgents` in the plugin entry config. Example: `disabledAgents: [oldfox]`.
+
+This fork selectively integrates upstream v0.20.0 rc.2 activation, direct-child lookup and resume/join/drain fixes, preserving per-step delegation-tool admission. It excludes the new opt-in templates, Native/Codemode host presets and PTC toolchain. Integration checks and real-host checks are reported separately.

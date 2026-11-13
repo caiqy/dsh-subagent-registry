@@ -1,6 +1,6 @@
 # dsh-subagent-registry
 
-Personal distribution: `@caiqy/dsh-subagent-registry@0.17.0-dsh.1`, based on upstream v0.17.0 (`36b4acf`). Upstream author fliu56 and the MIT license are preserved. `main` tracks upstream; personal releases use `dsh/enhanced` and [publish-caiqy.yml](.github/workflows/publish-caiqy.yml), with tags `caiqy-subagent-registry-v<version>`. Do not enable both distributions together: they share Cordis, tool and skill IDs. Releases use GitHub-hosted Node 24 / npm 11, OIDC with environment `npm-publish`, the `dsh` dist-tag and provenance; the workflow verifies public SRI and downloaded bytes. First run `pnpm release subagent-registry 0.17.0-dsh.1 --check` in the parent workspace after pushing source.
+Personal distribution: `@caiqy/dsh-subagent-registry@0.17.0-dsh.4`, based on upstream v0.17.0 (`36b4acf`) with selectively ported v0.20.0 compatibility fixes and roster controls. Upstream attribution is preserved; see LICENSE, LICENSE-MIT and NOTICE for Apache-2.0 integration and original MIT contributions. `main` tracks upstream; personal releases use `dsh/enhanced` and [publish-caiqy.yml](.github/workflows/publish-caiqy.yml), with tags `caiqy-subagent-registry-v<version>`. Do not enable both distributions together: they share Cordis, tool and skill IDs. Releases use GitHub-hosted Node 24 / npm 11, OIDC with environment `npm-publish`, the `dsh` dist-tag and provenance; the workflow verifies public SRI and downloaded bytes. First run `pnpm release subagent-registry 0.17.0-dsh.1 --check` in the parent workspace after pushing source.
 
 [中文](./README.md)
 
@@ -213,4 +213,13 @@ them: a pinned second copy shadows the host's bundled closure just the same.
 
 ## License
 
-MIT
+Apache-2.0; original MIT contributions are retained in LICENSE-MIT and NOTICE.
+
+
+## Roster controls and selective rc.2 integration
+
+`disabledAgents` is an eighth entry-config key: an array of agent names, default `[]`, hot-reloaded without changing agent files. Disabled agents are omitted from both tool rosters; dispatch and follow-ups by name are rejected. An existing background run can still be addressed by `agent_id`.
+
+Run `/registry-config` on a host with command and question services. Check every agent that should be disabled, including currently disabled names; uncheck to re-enable. Saving refreshes both tool descriptions. Cancellation writes nothing; names missing from the displayed roster retain their existing configuration. Without an interactive question surface, edit `disabledAgents` in the plugin entry config. Example: `disabledAgents: [oldfox]`.
+
+This fork selectively integrates upstream v0.20.0 rc.2 activation, direct-child lookup and resume/join/drain fixes, preserving per-step delegation-tool admission. It excludes the new opt-in templates, Native/Codemode host presets and PTC toolchain. Integration checks and real-host checks are reported separately.

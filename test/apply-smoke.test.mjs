@@ -126,6 +126,47 @@ writeFileSync(
   console.log('PASS apply(): deferred path ignores unrelated providers')
 }
 
+// The retained wizard must refresh BOTH tool descriptions. A partial
+// registration failure must restore both without duplicate registrations.
+{
+  const ctx = mockCtx({ providerNames: ['spawn'] })
+  const tools = new Map()
+  let disabled = []
+  let selected = ['smoke']
+  let command
+  let failFollowUp = false
+  ctx.tools.register = tool => {
+    if (tool.name === 'ask_agent' && failFollowUp) {
+      failFollowUp = false
+      throw new Error('follow-up registration refused')
+    }
+    assert.ok(!tools.has(tool.name), 'no duplicate registrations')
+    tools.set(tool.name, tool)
+    return () => { if (tools.get(tool.name) === tool) tools.delete(tool.name) }
+  }
+  const services = {
+    commands: { register(definition) { command = definition; return () => {} } },
+    userQuestions: { ask: async () => ({ answers: [{ id: 'disable-agents', selected }] }) },
+    settings: {
+      describe: () => [{ ns: 'dsh-subagent-registry', revision: 1 }],
+      async mutate(_ns, ops) { disabled = ops[0].value },
+    },
+  }
+  ctx.get = name => services[name]
+  apply(ctx, { agentsDir: AGENTS_DIR, provider: 'spawn', toolName: 'use_agent', disabledAgents: { get: () => disabled } })
+  const invocation = { rawInput: '', signal: new AbortController().signal }
+  assert.equal((await command.handler(invocation)).kind, 'success')
+  assert.ok(!tools.get('use_agent').description.includes('smoke agent'))
+  assert.ok(!tools.get('ask_agent').description.includes('One of: smoke'))
+  const previous = new Map(tools)
+  selected = []
+  failFollowUp = true
+  const failedRefresh = await command.handler(invocation)
+  assert.match(failedRefresh.text, /follow-up registration refused/)
+  assert.deepEqual(tools, previous, 'both previous definitions restored')
+  console.log('PASS apply(): wizard refreshes both tools and rolls back partial registration failure')
+}
+
 rmSync(AGENTS_DIR, { recursive: true, force: true })
 
 console.log('\nAll apply-smoke assertions passed.')

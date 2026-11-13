@@ -1,6 +1,6 @@
 ---
 name: dsh-subagent-registry-config
-description: "dsh 子代理注册表插件（@caiqy/dsh-subagent-registry）使用与配置指南。凡涉及自定义子代理、use_agent/ask_agent、agents 目录、agent .md 编写、子代理续跑，或要调整本插件配置时先读本指南：~/.dsh/agents/*.md frontmatter 全键（name/deep/display_name/description/model/thinking/background/maxRounds）、entry config 七键（agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language）、ask_user_question 代写 agent 文件向导、中断 run 续跑语义、接入与使用体检（插件装没装/挂没挂、模型用没用过）。触发词：子代理、agent、use_agent、ask_agent、agents 目录、续跑、resume、体检、调试、没调用、语言、换语言。"
+description: "dsh 子代理注册表插件（@caiqy/dsh-subagent-registry）使用与配置指南。凡涉及自定义子代理、use_agent/ask_agent、agents 目录、agent .md 编写、子代理续跑，或要调整本插件配置时先读本指南：~/.dsh/agents/*.md frontmatter 全键（name/deep/display_name/description/model/thinking/background/maxRounds）、entry config 八键（agentsDir/provider/toolName/askToolName/leafDenyTools/resume/language/disabledAgents）、ask_user_question 代写 agent 文件向导、中断 run 续跑语义、接入与使用体检（插件装没装/挂没挂、模型用没用过）。触发词：子代理、agent、use_agent、ask_agent、agents 目录、续跑、resume、体检、调试、没调用、语言、换语言。"
 ---
 
 # dsh-subagent-registry 使用指南（自定义子代理 / use_agent）
@@ -67,7 +67,7 @@ system prompt，**逐字使用**，不要二次改写），并告知生效时机
 - **新文件立即可按名调用**——`use_agent` 执行时会从磁盘重读文件。在 Web 左侧导航打开“子智能体”或手动刷新，工具名册在后续模型请求中同步更新，无需重启；页面保存/删除也自动刷新。纯 CLI/TUI 没有 Web 管理页时，名册在插件下次挂载时更新。
 - **已有文件的修改**（正文、frontmatter）下次 `use_agent` 调用即生效，无需重启。
 
-## 插件自身配置（entry config 七键）
+## 插件自身配置（entry config 八键）
 
 本插件没有 settings 命名空间，配置挂在**加载它的 patch 挂载块**上（bundle 的
 cordis.patch.yml `insert` 项的 `config:` 段，即 entry config）：
@@ -194,3 +194,12 @@ grep dsh-subagent-registry ~/.dsh/profiles/<profile>/cordis.patch.yml
 3. **预置 agent 丢了/被改** → 首次启动只在目录为空时植入 workhorse / oldfox /
    rubber-duck 三个预置 agent；已有文件永远不会被覆盖，删掉就是删掉。卸载插件也
    不会动 `~/.dsh/agents/` 里的文件。
+
+
+## 代理启停与 rc.2 选择性适配
+
+新增第八个 entry config 键 `disabledAgents`：要停用的 agent 名字数组，默认 `[]`，支持热更新，不修改 agent 文件。停用后从派发和追问工具名册中隐藏，并拒绝按名字派发或追问；已有后台 run 仍可通过 `agent_id` 联系。示例：`disabledAgents: [oldfox]`。
+
+在提供命令及问答服务的宿主中运行 `/registry-config`，勾选所有要停用的代理（已有停用项需继续勾选），取消勾选恢复启用。保存后刷新两个工具的名册。取消不写配置；未出现在名册中的缺失或损坏文件保留原停用状态。无问答面板时，按提示在插件 entry config 手工修改 `disabledAgents`。
+
+本分支选择性移植上游 v0.20.0 的 rc.2 启动、直接子代理查找，以及续跑、等待和清理修复；保留现有每步工具准入增强。排除新增可选模板、Native/Codemode 宿主预设及 PTC 工具链。单元检查与真实宿主检查分别记录。
