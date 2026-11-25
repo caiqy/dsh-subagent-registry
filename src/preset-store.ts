@@ -24,7 +24,7 @@ function object(value: unknown, keys: readonly string[], field?: string): Record
   return value as Record<string, unknown>
 }
 
-function validateId(id: unknown, creating = false): asserts id is string {
+export function validateId(id: unknown, creating = false): asserts id is string {
   if (typeof id !== 'string' || id.length === 0 || /[/\\<>:"|?*\p{Cc}]/u.test(id) || id.includes('..')
     || /[ .]$/.test(id) || /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])$/i.test(id.split('.')[0].trimEnd())) {
     fail('invalid_id', 'Expected a safe file basename without paths, controls, trailing dots/spaces or Windows reserved names', 'id')

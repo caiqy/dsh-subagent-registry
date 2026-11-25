@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input, Modal, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ModelCatalogModel, ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { PresetKey } from '../preset-contract.ts'
 import { isDirty, type PresetsController } from './presets-state.ts'
@@ -272,17 +272,23 @@ export function PresetsPage({ controller }: PresetsPageProps) {
           </div>
         )}
         <div className={styles.list}>
-          {state.list?.entries.map(entry => {
+          {(() => {
+            const canToggleList = Boolean(state.list?.canToggle)
+            const disabledSet = new Set(state.list?.disabledAgents ?? [])
+            return state.list?.entries.map(entry => {
             const displayName = entry.fields.display_name || entry.id
             const isThinkingActive = Boolean(entry.fields.thinking && entry.fields.thinking !== 'off')
             const thinkingValue = entry.fields.thinking || t.inheritDefault
             const modelValue = entry.fields.model || t.inheritDefault
+            const isDisabled = !entry.error && disabledSet.has(entry.id)
+            const canToggle = canToggleList && !entry.error
+            const isToggling = (state.togglingIds ?? []).includes(entry.id)
 
             return (
               <article
                 key={entry.id}
                 className={`${styles.card} ${styles.row}`}
-                data-state={entry.error ? 'error' : 'ready'}
+                data-state={entry.error ? 'error' : isDisabled ? 'disabled' : 'ready'}
               >
                 <div className={styles.cardHeader}>
                   <div className={styles.cardIdentity}>
@@ -293,11 +299,17 @@ export function PresetsPage({ controller }: PresetsPageProps) {
                         <span className={`${styles.identifier} ${styles.filePill}`}>{`${entry.id}.md`}</span>
                         <span
                           className={`${styles.badge} ${styles.statusBadge}`}
-                          data-status={entry.error ? 'error' : entry.structured ? 'ready' : 'unstructured'}
+                          data-status={entry.error ? 'error' : isDisabled ? 'disabled' : entry.structured ? 'ready' : 'unstructured'}
                         >
                           <span className={styles.statusDot} aria-hidden="true" />
-                          {entry.error ? t.statusBadgeError : entry.structured ? t.statusBadgeReady : t.statusBadgeRaw}
+                          {entry.error ? t.statusBadgeError : isDisabled ? t.statusBadgeDisabled : entry.structured ? t.statusBadgeReady : t.statusBadgeRaw}
                         </span>
+                        {!entry.error && isDisabled && !entry.structured && (
+                          <span className={`${styles.badge} ${styles.statusBadge}`} data-status="unstructured">
+                            <span className={styles.statusDot} aria-hidden="true" />
+                            {t.statusBadgeRaw}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -333,6 +345,16 @@ export function PresetsPage({ controller }: PresetsPageProps) {
                     >
                       {t.deleteAction}
                     </Button>
+                    {canToggle && <>
+                      <span className={styles.actionDivider} aria-hidden="true" />
+                      <Switch
+                        checked={!isDisabled}
+                        label={t.toggleAria(entry.id, !isDisabled)}
+                        title={isDisabled ? t.enableHint : t.disableHint}
+                        disabled={busy || state.status !== 'ready' || isToggling}
+                        onChange={next => { void controller.toggle(entry, next) }}
+                      />
+                    </>}
                   </div>
                 </div>
 
@@ -419,7 +441,8 @@ export function PresetsPage({ controller }: PresetsPageProps) {
                 )}
               </article>
             )
-          })}
+            })
+          })()}
         </div>
       </> : <form className={styles.form} onSubmit={event => { event.preventDefault(); void controller.save() }}>
         {input('name', editable ? t.nameHintEditable : t.nameHintFixed, { readOnly: !editable, required: true })}

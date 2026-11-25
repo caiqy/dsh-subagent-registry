@@ -1,4 +1,5 @@
 import { type PresetEntry, type PresetList } from './preset-contract.ts';
+export declare function validateId(id: unknown, creating?: boolean): asserts id is string;
 /** The directory is trusted host configuration, never a remote request parameter. */
 export declare function createPresetStore(directory: string): {
     list(): Promise<PresetList>;

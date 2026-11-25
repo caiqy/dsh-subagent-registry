@@ -19,6 +19,17 @@ export interface PresetList {
     directory: string;
     entries: PresetEntry[];
     language?: Language;
+    disabledAgents?: string[];
+    canToggle?: boolean;
+}
+export interface TogglePreset {
+    id: string;
+    enabled: boolean;
+}
+export interface TogglePresetResult {
+    id: string;
+    enabled: boolean;
+    disabledAgents: string[];
 }
 export interface SavePreset {
     id: string;

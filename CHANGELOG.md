@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.17.0-dsh.6] - 2026-11-25
+
+### Added
+- Add a per-agent enable/disable toggle (`Switch`) to the web preset management panel backed by the `subagent-presets/toggle` RPC endpoint and `disabledAgents` settings mutation, with disabled badge/card styling and Chinese/English/Russian copy.
+- Expose `disabledAgents` and dynamic `canToggle` availability in `subagent-presets/list`, and serialize client/server toggle mutations with conflict retry and roster refresh.
+
+### Fixed
+- Refresh `use_agent` and `ask_agent` selectively when their respective descriptions change during roster refresh, keeping `ask_agent` stable across non-roster description edits while still updating both when `disabledAgents` changes.
+
 ## [0.17.0-dsh.5] - 2026-11-13
 
 ### Fixed

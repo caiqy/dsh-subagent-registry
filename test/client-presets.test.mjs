@@ -6,17 +6,46 @@ import { resolve } from 'node:path'
 import { PresetsController, saveRequest, isDirty } from '../src/client/presets-state.ts'
 
 const original = { id: 'engineer', version: 'v1', fields: { name: 'engineer', display_name: 'Engineer', model: 'custom/unlisted', thinking: 'high' }, body: 'Persona\n\n', source: '---\nname: engineer\n# comment\n---\nPersona\n\n', structured: true }
-const list = { directory: 'isolated/agents', entries: [original] }
+const second = { id: 'reviewer', version: 'v2', fields: { name: 'reviewer', display_name: 'Reviewer' }, body: 'Review\n', source: '---\nname: reviewer\n---\nReview\n', structured: true }
+const list = { directory: 'isolated/agents', entries: [original, second], disabledAgents: [], canToggle: true }
 const requests = []
 let saveReply = { ok: true, value: original }
 let listReply = { ok: true, value: list }
+let toggleReply
 let modelError
+let disabledState = []
 const controller = new PresetsController({
-  async call(endpoint, payload) { requests.push({ endpoint, payload }); return endpoint === 'list' ? listReply : endpoint === 'save' ? saveReply : { ok: true, value: null } },
+  async call(endpoint, payload) {
+    requests.push({ endpoint, payload })
+    if (endpoint === 'list') return listReply
+    if (endpoint === 'save') return saveReply
+    if (endpoint === 'toggle') {
+      if (toggleReply) return toggleReply
+      disabledState = payload.enabled
+        ? disabledState.filter(id => id !== payload.id)
+        : (disabledState.includes(payload.id) ? disabledState : [...disabledState, payload.id])
+      return { ok: true, value: { id: payload.id, enabled: payload.enabled, disabledAgents: [...disabledState] } }
+    }
+    return { ok: true, value: null }
+  },
   async models() { if (modelError) throw new Error(modelError); return { default: { provider: 'p', model: 'm' }, groups: [], failures: [], routableProviders: [] } },
 })
 await controller.load()
 assert.equal(controller.getSnapshot().status, 'ready')
+await controller.toggle(original, false)
+assert.deepEqual(requests.at(-1), { endpoint: 'toggle', payload: { id: 'engineer', enabled: false } })
+assert.deepEqual(controller.getSnapshot().list.disabledAgents, ['engineer'])
+assert.equal(controller.getSnapshot().notice, '已停用 engineer.md')
+await Promise.all([controller.toggle(second, false), controller.toggle(original, true)])
+assert.deepEqual(controller.getSnapshot().list.disabledAgents, ['reviewer'])
+assert.equal(controller.getSnapshot().notice, '已启用 engineer.md')
+toggleReply = { ok: false, error: 'Settings unavailable', code: 'settings_unavailable' }
+await controller.toggle(original, false)
+assert.equal(controller.getSnapshot().failure.code, 'settings_unavailable')
+assert.deepEqual(controller.getSnapshot().list.disabledAgents, ['reviewer'])
+toggleReply = undefined
+await controller.toggle(second, true)
+assert.deepEqual(controller.getSnapshot().list.disabledAgents, [])
 controller.start('edit', original)
 assert.equal(isDirty(controller.getSnapshot().draft), false)
 controller.field('name', 'renamed')
@@ -128,18 +157,20 @@ const document = { createElement: () => ({ dataset: {}, remove() { styleNodes.sp
 runInNewContext(js, { module, exports: module.exports, __PRESETS_CSS__: css, document, require(id) {
   if (id === 'react') return react
   if (id === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: 'Fragment' }
-  if (id === '@deepseek-ai/dsh-client-ui-primitives') return { Button: 'HostButton', Input: 'HostInput', Modal: 'HostModal' }
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') return { Button: 'HostButton', Input: 'HostInput', Modal: 'HostModal', Switch: 'HostSwitch' }
   throw new Error(`Unexpected bundled dependency ${id}`)
 } })
 const registrations = new Map()
 const cleanups = []
 const navigation = []
 let listLanguage
+let mockDisabledAgents = []
+let mockCanToggle = true
 module.exports.apply({
   effect(effect) { cleanups.push(effect()) },
   slots: { inject(_slot, callback) { cleanups.push(callback()) }, register(options, component) { registrations.set(options.name, { options, component }); return () => registrations.delete(options.name) } },
   layout: { selectPanel(id) { navigation.push(id) } },
-  connection: { rpc: { async call(channel, endpoint, payload) { assert.equal(channel, '/api'); if (endpoint === 'subagent-presets/save') return { ok: true, value: { ok: false, code: 'invalid_id', field: 'id', error: 'Unsafe name' } }; assert.equal(endpoint, 'subagent-presets/list'); assert.equal(payload, null); return { ok: true, value: { ok: true, value: listLanguage ? { ...list, language: listLanguage } : list } } } } },
+  connection: { rpc: { async call(channel, endpoint, payload) { assert.equal(channel, '/api'); if (endpoint === 'subagent-presets/save') return { ok: true, value: { ok: false, code: 'invalid_id', field: 'id', error: 'Unsafe name' } }; if (endpoint === 'subagent-presets/toggle') { mockDisabledAgents = payload.enabled ? mockDisabledAgents.filter(id => id !== payload.id) : [...new Set([...mockDisabledAgents, payload.id])]; return { ok: true, value: { ok: true, value: { id: payload.id, enabled: payload.enabled, disabledAgents: [...mockDisabledAgents] } } } } assert.equal(endpoint, 'subagent-presets/list'); assert.equal(payload, null); return { ok: true, value: { ok: true, value: { ...list, disabledAgents: [...mockDisabledAgents], canToggle: mockCanToggle, ...(listLanguage ? { language: listLanguage } : {}) } } } } } },
   remote: {
     session: {
       async modelCatalog() {
@@ -265,6 +296,37 @@ assert.ok(nodes.some(node => node.props?.children === 'high'))
 assert.ok(nodes.some(node => node.props?.['data-kind'] === 'model'))
 assert.ok(nodes.some(node => node.props?.children === 'engineer.md'))
 assert.ok(nodes.some(node => node.props?.['data-status'] === 'ready'))
+const switchNodes = nodes.filter(node => node.type === 'HostSwitch')
+assert.equal(switchNodes.length, 2, 'Switch must be rendered on each valid card when canToggle=true')
+assert.equal(switchNodes[0].props.checked, true)
+assert.equal(switchNodes[0].props.label, '停用 engineer')
+switchNodes[0].props.onChange(false)
+assert.deepEqual(Array.from(pageController.getSnapshot().togglingIds), ['engineer'])
+await new Promise(resolve => {
+  const stop = pageController.subscribe(() => {
+    if ((pageController.getSnapshot().togglingIds ?? []).length === 0) { stop(); resolve() }
+  })
+})
+nodes.length = 0
+collect(main.component({ controller: pageController }))
+assert.equal(nodes.find(node => node.type === 'article').props['data-state'], 'disabled')
+assert.ok(nodes.some(node => node.props?.['data-status'] === 'disabled'))
+const disabledSwitch = nodes.filter(node => node.type === 'HostSwitch')[0]
+assert.equal(disabledSwitch.props.checked, false)
+assert.equal(disabledSwitch.props.label, '启用 engineer')
+disabledSwitch.props.onChange(true)
+await new Promise(resolve => {
+  const stop = pageController.subscribe(() => {
+    if ((pageController.getSnapshot().togglingIds ?? []).length === 0) { stop(); resolve() }
+  })
+})
+mockCanToggle = false
+await pageController.load()
+nodes.length = 0
+collect(main.component({ controller: pageController }))
+assert.equal(nodes.filter(node => node.type === 'HostSwitch').length, 0, 'Switch must be hidden when canToggle=false')
+mockCanToggle = true
+await pageController.load()
 
 pageController.start('create')
 pageController.field('name', '../unsafe')
@@ -284,6 +346,8 @@ collect(main.component({ controller: pageController }))
 assert.equal(pageController.getSnapshot().language, 'ru')
 assert.ok(nodes.some(node => node.props?.children === 'Модель: '), 'list reply language=ru must render the Russian model chip label')
 assert.ok(!nodes.some(node => node.props?.children === '模型：'), 'Chinese chip label must be replaced under language=ru')
+const ruSwitch = nodes.find(node => node.type === 'HostSwitch')
+assert.equal(ruSwitch.props.label, 'Отключить engineer')
 
 for (const cleanup of cleanups.reverse()) cleanup()
 assert.equal(styleNodes.length, 0)

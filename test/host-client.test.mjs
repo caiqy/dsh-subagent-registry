@@ -19,7 +19,7 @@ assert.equal(target.pendingQueue.length, 1)
 assert.equal(target.pendingQueue[0].id, metadata.name)
 const system = exports.createClientModuleSystem(target, { id: bootstrap.id, exports }, {
   boot: { rev: 'fixture', entries: [{ id: metadata.name, url: '/client.js', rev: 'fixture', ...metadata.dsh.client }], batches: [{ phase: 'application', url: '/client.js', rev: 'fixture', entries: [metadata.name] }] },
-  staticModules: { react: React, 'react/jsx-runtime': jsx, '@deepseek-ai/dsh-client-ui-primitives': { Button: 'FixtureButton', Input: 'FixtureInput', Modal: 'FixtureModal' } },
+  staticModules: { react: React, 'react/jsx-runtime': jsx, '@deepseek-ai/dsh-client-ui-primitives': { Button: 'FixtureButton', Input: 'FixtureInput', Modal: 'FixtureModal', Switch: 'FixtureSwitch' } },
   loadBundle() { throw new Error('preloaded factory must not require another transport') },
 })
 const plugin = await system.import(metadata.name)

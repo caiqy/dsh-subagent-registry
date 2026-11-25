@@ -1,4 +1,4 @@
-import { PRESET_KEYS, type Language, type PresetEntry, type PresetFields, type PresetKey, type PresetList, type PresetReply, type SavePreset } from '../preset-contract.ts'
+import { PRESET_KEYS, type Language, type PresetEntry, type PresetFields, type PresetKey, type PresetList, type PresetReply, type SavePreset, type TogglePresetResult } from '../preset-contract.ts'
 import { stringsFor } from './strings.ts'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 
@@ -24,6 +24,7 @@ export interface PresetsSnapshot {
   failure?: Failure
   listError?: Failure
   busy: boolean
+  togglingIds?: readonly string[]
   confirmation?: Confirmation
   notice?: string
   catalog?: ModelCatalog
@@ -32,7 +33,7 @@ export interface PresetsSnapshot {
   language?: Language
 }
 export interface PresetsClient {
-  call<T>(endpoint: 'list' | 'save' | 'remove', payload: unknown): Promise<PresetReply<T>>
+  call<T>(endpoint: 'list' | 'save' | 'remove' | 'toggle', payload: unknown): Promise<PresetReply<T>>
   models(): Promise<ModelCatalog>
 }
 
@@ -69,6 +70,7 @@ export class PresetsController {
   private disposed = false
   private loading?: Promise<void>
   private catalogLoading?: Promise<void>
+  private toggling: Promise<void> = Promise.resolve()
   private readonly client: PresetsClient
   constructor(client: PresetsClient) { this.client = client }
   getSnapshot = (): PresetsSnapshot => this.snapshot
@@ -89,6 +91,7 @@ export class PresetsController {
   }
   private async fetchList(): Promise<void> {
     try {
+      await this.toggling
       const reply = await this.client.call<PresetList>('list', null)
       if (reply.ok) this.publish({ status: 'ready', list: reply.value, listError: undefined, language: reply.value.language })
       else this.publish({ status: 'error', listError: reply })
@@ -156,6 +159,31 @@ export class PresetsController {
       } catch (error) { this.publish({ failure: caught(error) }) }
       finally { this.publish({ busy: false }) }
     }
+  }
+  toggle(entry: PresetEntry, enabled: boolean): Promise<void> {
+    if (this.snapshot.busy || this.snapshot.confirmation || this.snapshot.draft) return Promise.resolve()
+    if ((this.snapshot.togglingIds ?? []).includes(entry.id)) return Promise.resolve()
+    this.publish({ togglingIds: [...(this.snapshot.togglingIds ?? []), entry.id], failure: undefined, notice: undefined })
+    const operation = this.toggling.then(async () => {
+      try {
+        const reply = await this.client.call<TogglePresetResult>('toggle', { id: entry.id, enabled })
+        if (!reply.ok) {
+          this.publish({ failure: reply })
+        } else {
+          const t = stringsFor(this.snapshot.language)
+          const list = this.snapshot.list
+            ? { ...this.snapshot.list, disabledAgents: reply.value.disabledAgents }
+            : undefined
+          this.publish({ list, notice: enabled ? t.enabledNotice(entry.id) : t.disabledNotice(entry.id) })
+        }
+      } catch (error) {
+        this.publish({ failure: caught(error) })
+      } finally {
+        this.publish({ togglingIds: (this.snapshot.togglingIds ?? []).filter(id => id !== entry.id) })
+      }
+    })
+    this.toggling = operation.catch(() => {})
+    return operation
   }
   async save(): Promise<void> {
     const draft = this.snapshot.draft

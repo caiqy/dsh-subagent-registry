@@ -220,7 +220,7 @@ export function apply(ctx: Context, config: RunAgentConfig): void {
   // call time through ctx.subagents.startActivation, so no further check is needed.
   let refreshRoster = async (): Promise<void> => {}
   // Web is optional: CLI/TUI mounts must keep their dispatch tools without Connection.
-  ctx.inject?.(['connection', 'webServer'], web => registerPresetsRpc(web, dir, () => refreshRoster(), () => runConfig.language))
+  ctx.inject?.(['connection', 'webServer'], web => registerPresetsRpc(web, dir, () => refreshRoster(), () => runConfig.language, runConfig.disabledAgents))
   registerSubagentsCommand({ ctx, agentsDir: dir, language, disabledAgents: runConfig.disabledAgents, refreshRoster: () => refreshRoster() })
   // Activation hosts (the 0.2.1 line) carry a fresh child's persona and leaf
   // scoping out-of-band: the start request no longer holds `persona` /
@@ -249,32 +249,50 @@ export function apply(ctx: Context, config: RunAgentConfig): void {
       const replace = async (): Promise<void> => {
         const next = runAgentTool(ctx, runConfig)
         const nextFollowUp = buildFollowUp()
-        // Roster refresh replaces BOTH tools: the dispatch description carries
-        // the roster, and the follow-up description carries the same (toggled)
-        // name list — one refresh, one swap.
-        if (!active || (next.description === definition.description && nextFollowUp.description === followUpDefinition.description)) return
+        const dispatchChanged = next.description !== definition.description
+        const followUpChanged = nextFollowUp.description !== followUpDefinition.description
+        // Roster refresh updates whichever tool descriptions actually changed.
+        if (!active || (!dispatchChanged && !followUpChanged)) return
         const previous = definition
         const previousFollowUp = followUpDefinition
-        guidance()
-        await dispatch()
-        await followUp()
+        if (dispatchChanged) {
+          guidance()
+          await dispatch()
+        }
+        if (followUpChanged) {
+          await followUp()
+        }
         if (!active) return
         try {
-          dispatch = ctx.tools.register(next)
-          definition = next
-          followUp = ctx.tools.register(nextFollowUp)
-          followUpDefinition = nextFollowUp
+          if (dispatchChanged) {
+            dispatch = ctx.tools.register(next)
+            definition = next
+          }
+          if (followUpChanged) {
+            followUp = ctx.tools.register(nextFollowUp)
+            followUpDefinition = nextFollowUp
+          }
         } catch (error) {
-          // A follow-up registration failure may leave the new dispatch live.
-          await dispatch()
-          dispatch = ctx.tools.register(previous)
-          definition = previous
-          followUp = ctx.tools.register(previousFollowUp)
-          followUpDefinition = previousFollowUp
-          guidance = registerDelegationGuidance(ctx, previous, config.askToolName ?? 'ask_agent')
+          if (dispatchChanged && definition === next) {
+            await dispatch()
+            dispatch = ctx.tools.register(previous)
+            definition = previous
+          }
+          if (followUpChanged && followUpDefinition !== previousFollowUp) {
+            await followUp()
+          }
+          if (followUpChanged) {
+            followUp = ctx.tools.register(previousFollowUp)
+            followUpDefinition = previousFollowUp
+          }
+          if (dispatchChanged) {
+            guidance = registerDelegationGuidance(ctx, previous, config.askToolName ?? 'ask_agent')
+          }
           throw error
         }
-        guidance = registerDelegationGuidance(ctx, definition, config.askToolName ?? 'ask_agent')
+        if (dispatchChanged) {
+          guidance = registerDelegationGuidance(ctx, definition, config.askToolName ?? 'ask_agent')
+        }
       }
       refreshRoster = () => {
         const operation = pending.then(replace)

@@ -41,7 +41,7 @@ export function SubagentIcon({ size }: { size?: number }) {
 
 export function apply(ctx: Context & { readonly connection: ConnectionHandle }): void {
   const client: PresetsClient = {
-    async call<T>(endpoint: 'list' | 'save' | 'remove', payload: unknown): Promise<PresetReply<T>> {
+    async call<T>(endpoint: 'list' | 'save' | 'remove' | 'toggle', payload: unknown): Promise<PresetReply<T>> {
       const result = await ctx.connection.rpc.call(PRESETS_CHANNEL, `${PRESETS_ENDPOINT_PREFIX}${endpoint}`, payload)
       if (!result.ok) throw new Error(result.error.message)
       return result.value as PresetReply<T>

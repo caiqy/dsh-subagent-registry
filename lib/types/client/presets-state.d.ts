@@ -32,6 +32,7 @@ export interface PresetsSnapshot {
     failure?: Failure;
     listError?: Failure;
     busy: boolean;
+    togglingIds?: readonly string[];
     confirmation?: Confirmation;
     notice?: string;
     catalog?: ModelCatalog;
@@ -40,7 +41,7 @@ export interface PresetsSnapshot {
     language?: Language;
 }
 export interface PresetsClient {
-    call<T>(endpoint: 'list' | 'save' | 'remove', payload: unknown): Promise<PresetReply<T>>;
+    call<T>(endpoint: 'list' | 'save' | 'remove' | 'toggle', payload: unknown): Promise<PresetReply<T>>;
     models(): Promise<ModelCatalog>;
 }
 export declare function saveRequest(draft: Draft): SavePreset;
@@ -52,6 +53,7 @@ export declare class PresetsController {
     private disposed;
     private loading?;
     private catalogLoading?;
+    private toggling;
     private readonly client;
     constructor(client: PresetsClient);
     getSnapshot: () => PresetsSnapshot;
@@ -72,6 +74,7 @@ export declare class PresetsController {
     askDelete(entry: PresetEntry): void;
     cancelConfirmation(): void;
     confirm(): Promise<void>;
+    toggle(entry: PresetEntry, enabled: boolean): Promise<void>;
     save(): Promise<void>;
     private persist;
 }

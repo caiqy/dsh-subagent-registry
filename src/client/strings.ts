@@ -45,12 +45,16 @@ export interface Strings {
   statusBadgeError: string
   statusBadgeReady: string
   statusBadgeRaw: string
+  statusBadgeDisabled: string
   editAria: (id: string, isError: boolean) => string
   copyAria: (id: string) => string
   deleteAria: (id: string) => string
+  toggleAria: (id: string, currentlyEnabled: boolean) => string
   copyAction: string
   editAction: string
   deleteAction: string
+  enableHint: string
+  disableHint: string
   parseError: string
   descriptionEmpty: string
   unstructuredNotice: string
@@ -116,6 +120,8 @@ export interface Strings {
   confirmTarget: (id: string) => string
   deletedNotice: (id: string) => string
   savedNotice: (id: string) => string
+  enabledNotice: (id: string) => string
+  disabledNotice: (id: string) => string
 }
 
 const zh: Strings = {
@@ -152,12 +158,16 @@ const zh: Strings = {
   statusBadgeError: '文件错误',
   statusBadgeReady: '可用',
   statusBadgeRaw: '原文编辑',
+  statusBadgeDisabled: '已停用',
   editAria: (id, isError) => `${isError ? '修复' : '编辑'} ${id}`,
   copyAria: id => `复制 ${id}`,
   deleteAria: id => `删除 ${id}.md`,
+  toggleAria: (id, currentlyEnabled) => `${currentlyEnabled ? '停用' : '启用'} ${id}`,
   copyAction: '复制',
   editAction: '编辑',
   deleteAction: '删除',
+  enableHint: '启用此子智能体，使其出现在派发名册中',
+  disableHint: '停用此子智能体（仅从派发名册隐藏，不会删除文件）',
   parseError: '配置解析异常',
   descriptionEmpty: '未填写职责描述',
   unstructuredNotice: '此文件需要通过原文编辑保留结构。',
@@ -223,6 +233,8 @@ const zh: Strings = {
   confirmTarget: id => `目标：${id}.md`,
   deletedNotice: id => `已删除 ${id}.md`,
   savedNotice: id => `已保存 ${id}.md`,
+  enabledNotice: id => `已启用 ${id}.md`,
+  disabledNotice: id => `已停用 ${id}.md`,
 }
 
 // Russian wording reused verbatim from the approved i18n/ru branch.
@@ -260,12 +272,16 @@ const ru: Strings = {
   statusBadgeError: 'Ошибка файла',
   statusBadgeReady: 'Готов',
   statusBadgeRaw: 'Редактирование исходника',
+  statusBadgeDisabled: 'Отключён',
   editAria: (id, isError) => `${isError ? 'Ремонт' : 'Редактировать'} ${id}`,
   copyAria: id => `Копировать ${id}`,
   deleteAria: id => `Удалить ${id}.md`,
+  toggleAria: (id, currentlyEnabled) => `${currentlyEnabled ? 'Отключить' : 'Включить'} ${id}`,
   copyAction: 'Копировать',
   editAction: 'Редактировать',
   deleteAction: 'Удалить',
+  enableHint: 'Включить этого суб-агента в список запуска',
+  disableHint: 'Отключить этого суб-агента (скрывает из списка запуска без удаления файла)',
   parseError: 'Ошибка разбора конфигурации',
   descriptionEmpty: 'Описание не указано',
   unstructuredNotice: 'Чтобы сохранить структуру, этот файл нужно редактировать как исходник.',
@@ -331,6 +347,8 @@ const ru: Strings = {
   confirmTarget: id => `Цель: ${id}.md`,
   deletedNotice: id => `Удалён ${id}.md`,
   savedNotice: id => `Сохранён ${id}.md`,
+  enabledNotice: id => `Включён ${id}.md`,
+  disabledNotice: id => `Отключён ${id}.md`,
 }
 
 const en: Strings = {
@@ -367,12 +385,16 @@ const en: Strings = {
   statusBadgeError: 'File error',
   statusBadgeReady: 'Ready',
   statusBadgeRaw: 'Raw source edit',
+  statusBadgeDisabled: 'Disabled',
   editAria: (id, isError) => `${isError ? 'Repair' : 'Edit'} ${id}`,
   copyAria: id => `Copy ${id}`,
   deleteAria: id => `Delete ${id}.md`,
+  toggleAria: (id, currentlyEnabled) => `${currentlyEnabled ? 'Disable' : 'Enable'} ${id}`,
   copyAction: 'Copy',
   editAction: 'Edit',
   deleteAction: 'Delete',
+  enableHint: 'Enable this sub-agent so it appears in the dispatch roster',
+  disableHint: 'Disable this sub-agent (hides from the dispatch roster without deleting the file)',
   parseError: 'Configuration parse error',
   descriptionEmpty: 'No responsibilities provided',
   unstructuredNotice: 'This file must be edited as raw source to preserve its structure.',
@@ -438,6 +460,8 @@ const en: Strings = {
   confirmTarget: id => `Target: ${id}.md`,
   deletedNotice: id => `Deleted ${id}.md`,
   savedNotice: id => `Saved ${id}.md`,
+  enabledNotice: id => `Enabled ${id}.md`,
+  disabledNotice: id => `Disabled ${id}.md`,
 }
 
 const tables: Record<Language, Strings> = { zh, en, ru }

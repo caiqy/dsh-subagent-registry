@@ -49,6 +49,19 @@
 .card[data-state='error']:hover, .row[data-state='error']:hover {
   border-color: var(--dsw-alias-state-error-primary);
 }
+.card[data-state='disabled'], .row[data-state='disabled'] {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 55%, var(--dsw-alias-bg-layer-1));
+}
+.card[data-state='disabled'] .avatar, .row[data-state='disabled'] .avatar {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  border-color: var(--dsw-alias-border-l1);
+}
+.card[data-state='disabled'] .cardTitle,
+.card[data-state='disabled'] .description,
+.card[data-state='disabled'] .cardMeta {
+  opacity: 0.65;
+}
 
 /* Card Header */
 .cardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-width: 0; }
@@ -132,9 +145,24 @@
 .statusBadge[data-status='unstructured'] .statusDot {
   background: var(--dsw-alias-state-warn-primary);
 }
+.statusBadge[data-status='disabled'] {
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+.statusBadge[data-status='disabled'] .statusDot {
+  background: var(--dsw-alias-label-tertiary);
+}
 
 /* Card Actions */
 .cardActions, .rowActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: none; }
+.actionDivider {
+  width: 1px;
+  height: 18px;
+  background: var(--dsw-alias-border-l1);
+  margin-inline: 2px;
+  flex: none;
+}
 .danger { color: var(--dsw-alias-label-secondary); }
 .danger:hover:not(:disabled) {
   color: var(--dsw-alias-state-error-primary) !important;
@@ -288,4 +316,3 @@
   .formFooter { align-items: flex-start; }
   .formFooter .actions { width: 100%; }
 }
-

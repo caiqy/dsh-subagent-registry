@@ -42,12 +42,16 @@ export interface Strings {
     statusBadgeError: string;
     statusBadgeReady: string;
     statusBadgeRaw: string;
+    statusBadgeDisabled: string;
     editAria: (id: string, isError: boolean) => string;
     copyAria: (id: string) => string;
     deleteAria: (id: string) => string;
+    toggleAria: (id: string, currentlyEnabled: boolean) => string;
     copyAction: string;
     editAction: string;
     deleteAction: string;
+    enableHint: string;
+    disableHint: string;
     parseError: string;
     descriptionEmpty: string;
     unstructuredNotice: string;
@@ -113,6 +117,8 @@ export interface Strings {
     confirmTarget: (id: string) => string;
     deletedNotice: (id: string) => string;
     savedNotice: (id: string) => string;
+    enabledNotice: (id: string) => string;
+    disabledNotice: (id: string) => string;
 }
 /** Unknown or missing languages fall back to the Chinese defaults. */
 export declare function stringsFor(lang: Language | undefined): Strings;
